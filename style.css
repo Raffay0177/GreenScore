@@ -1,0 +1,272 @@
+/* GREEN SCORE - LIGHT THEME (REDESIGN) */
+@import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&display=swap');
+
+:root {
+  /* Apple-style Light Theme palette */
+  --bg-main: #F2F2F7;
+  --bg-card: #FFFFFF;
+  --primary-green: #2ecc71;
+  --primary-glow: rgba(46, 204, 113, 0.15);
+  --accent-blue: #007AFF;
+  --accent-orange: #FF9500;
+  --text-main: #1C1C1E;
+  --text-dim: #8E8E93;
+  --border-light: rgba(0, 0, 0, 0.05);
+  
+  /* Layout Constants */
+  --safe-area: 20px;
+  --border-radius: 24px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, 'DM Sans', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+#app {
+  width: 100%;
+  max-width: 500px; /* Center centered centered container container */
+  min-height: 100vh;
+  padding: var(--safe-area);
+  padding-bottom: 120px;
+  position: relative;
+  background: var(--bg-main);
+  box-shadow: 0 0 100px rgba(0,0,0,0.05); /* Soft shadow for desktop */
+}
+
+/* Typography Overrides */
+h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600; letter-spacing: -0.5px; }
+
+/* Components */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  margin-bottom: 20px;
+  border: 1px solid var(--border-light);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--primary-green);
+}
+
+.streak-pill {
+    background: rgba(255,149,0,0.1);
+    padding: 8px 16px;
+    border-radius: 100px;
+    color: var(--accent-orange);
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Date Picker - Minimalists Smooth Scroll (Phase 4) */
+.date-picker {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 10px var(--safe-area);
+  margin: 0 calc(-1 * var(--safe-area)) 32px;
+  scrollbar-width: none;
+}
+.date-picker::-webkit-scrollbar { display: none; }
+
+.date-item {
+  scroll-snap-align: center;
+  flex: 0 0 calc(100% / 7); /* Show roughly 7 dates */
+  min-width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  transition: 0.2s;
+  cursor: pointer;
+}
+
+.date-item .day { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+.date-item .num { font-size: 16px; font-weight: 600; }
+.date-item.active { background: #000; color: #fff; }
+.date-item.active .day { color: rgba(255,255,255,0.6); }
+
+/* Progress */
+.main-chart {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.score-details .val { font-size: 48px; line-height: 1; }
+.score-details .limit { color: var(--text-dim); font-size: 20px; }
+.score-details .label { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+
+/* Grid Cards */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.mini-card {
+  text-align: center;
+  padding: 16px 8px;
+}
+
+.mini-card .val { font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.mini-card .label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Feature Sections */
+.section-title { font-size: 22px; margin-bottom: 16px; }
+
+.ai-carousel {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    scrollbar-width: none;
+}
+
+.tip-card {
+    min-width: 260px;
+    background: rgba(0, 122, 255, 0.05);
+    border: 1px solid rgba(0, 122, 255, 0.1);
+    border-radius: 18px;
+    padding: 16px;
+    position: relative;
+}
+
+.tip-card .tag { font-size: 10px; font-weight: 700; color: var(--accent-blue); margin-bottom: 4px; }
+.tip-card p { font-size: 13px; line-height: 1.5; color: #1c1c1e; }
+
+/* Bottom Nav Pop Premium */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 500px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  padding: 20px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-light);
+  z-index: 1000;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.nav-item.active { color: var(--primary-green); }
+
+.add-btn {
+  width: 60px;
+  height: 60px;
+  background: var(--primary-green);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 32px;
+  box-shadow: 0 10px 30px rgba(46, 204, 113, 0.4);
+  transform: translateY(-20px);
+  cursor: pointer;
+}
+
+/* Animations */
+.fade-in { animation: fadeIn 0.8s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Swipable Card Carousel (Phase 3) */
+.swipe-container {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  gap: 0;
+  margin-bottom: 8px;
+  border-radius: var(--border-radius);
+}
+.swipe-container::-webkit-scrollbar { display: none; }
+
+.swipe-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  padding: 24px;
+  min-height: 160px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.4s ease;
+}
+
+/* Color-Coded Themes */
+.slide-usage { background: var(--bg-card); }
+.slide-gains { background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%); border: 1px solid rgba(46, 204, 113, 0.2); }
+.slide-risk { background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%); border: 1px solid rgba(231, 76, 60, 0.2); }
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-light);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dot.active {
+  background: var(--primary-green);
+  box-shadow: 0 0 10px var(--primary-glow);
+  transform: scale(1.2);
+}
+
+/* Redesign for "Less Value Heavy" */
+.visual-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-top: 4px; }
+.status-pill { font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: 800; display: inline-block; margin-top: 8px; }
+.status-good { background: #e8f5e9; color: #2e7d32; }
+.status-warn { background: #fff3e0; color: #ef6c00; }
+.status-danger { background: #ffebee; color: #c62828; }
+
+/* Existing Components Overrides */
+.card.main-chart { padding: 0; overflow: hidden; } /* Remove padding for carousel */

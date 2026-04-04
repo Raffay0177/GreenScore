@@ -1,5 +1,7 @@
 {
+  "version": 2,
   "rewrites": [
-    { "source": "/", "destination": "/greenscore-project-brief.html" }
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

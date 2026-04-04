@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GreenScore — Full Stack Tracker</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <i data-lucide="leaf" style="color: var(--primary-green); width: 24px; height: 24px;"></i>
+        <span class="clash">GreenScore</span>
+      </div>
+      <div class="streak-pill" id="auth-status">
+        <span id="user-name">Loading...</span>
+        <button id="btn-logout" class="auth-btn" style="display:none; background:none; border:none; color:var(--accent-orange); margin-left:8px; cursor:pointer; font-weight:700;">Logout</button>
+        <button id="btn-login" class="auth-btn" style="display:none; background:var(--primary-green); border:none; color:white; padding:4px 12px; border-radius:100px; cursor:pointer; font-weight:700;">Login</button>
+      </div>
+    </header>
+
+    <!-- Navigation States (SPA) -->
+    
+    <!-- 1. HOME TAB -->
+    <section id="tab-home" class="tab-content active">
+      <!-- Feature: Dynamic Date Picker (Phase 4) -->
+      <div class="date-picker" id="date-picker-scroll">
+        <!-- Dynamically Generated 60 Days -->
+      </div>
+
+      <!-- Feature 01: Daily Dashboard (Swipable) -->
+      <div class="card main-chart animate-in">
+        <div class="swipe-container" id="dash-swipe">
+          <!-- Slide 1: Usage (CO2) -->
+          <div class="swipe-slide slide-usage">
+            <div class="score-details">
+              <div class="clash">
+                <span class="val" id="main-co2-val">0.0</span>
+                <span class="limit">/47kg</span>
+              </div>
+              <div class="visual-label">Carbon Usage</div>
+              <div class="status-pill status-good">STABLE</div>
+            </div>
+            <div class="progress-ring">
+              <svg width="100" height="100">
+                <circle class="ring-bg" stroke="#f2f2f7" stroke-width="8" fill="transparent" r="40" cx="50" cy="50"/>
+                <circle id="main-ring-1" class="ring-progress" stroke="var(--primary-green)" stroke-width="8" stroke-linecap="round" fill="transparent" r="40" cx="50" cy="50" style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="16" font-weight="700">🌱</text>
+              </svg>
+            </div>
+          </div>
+          <!-- Slide 2: Gains (Trees) -->
+          <div class="swipe-slide slide-gains">
+            <div class="score-details">
+              <div class="clash">
+                <span class="val" id="main-tree-val">3.5</span>
+                <span class="limit">Saved</span>
+              </div>
+              <div class="visual-label">Forest Legacy</div>
+              <div class="status-pill status-good">GROWING</div>
+            </div>
+            <div class="progress-ring">
+              <svg width="100" height="100">
+                <circle class="ring-bg" stroke="#e8f5e9" stroke-width="8" fill="transparent" r="40" cx="50" cy="50"/>
+                <circle id="main-ring-2" class="ring-progress" stroke="#4caf50" stroke-width="8" stroke-linecap="round" fill="transparent" r="40" cx="50" cy="50" style="stroke-dasharray: 251.3; stroke-dashoffset: 150;"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="24">🌳</text>
+              </svg>
+            </div>
+          </div>
+          <!-- Slide 3: Risk (Local) -->
+          <div class="swipe-slide slide-risk">
+            <div class="score-details">
+              <div class="clash" style="color: #c62828;">
+                <span class="val">HIGH</span>
+              </div>
+              <div class="visual-label">Local Exposure</div>
+              <div class="status-pill status-danger">THREAT: HEAT</div>
+            </div>
+            <div class="progress-ring">
+              <svg width="100" height="100">
+                <circle class="ring-bg" stroke="#ffebee" stroke-width="8" fill="transparent" r="40" cx="50" cy="50"/>
+                <circle id="main-ring-3" class="ring-progress" stroke="#e74c3c" stroke-width="8" stroke-linecap="round" fill="transparent" r="40" cx="50" cy="50" style="stroke-dasharray: 251.3; stroke-dashoffset: 60;"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="24">🌡️</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+
+      <!-- Feature 04: AI Tip Engine -->
+      <h3 class="section-title clash">AI Insights</h3>
+      <div class="ai-carousel" id="ai-tips">
+        <div class="tip-card">
+          <span class="tag">AI TIP</span>
+          <p>Loading your personalized suggestions...</p>
+        </div>
+      </div>
+
+      <!-- Quick Breakdown Grid -->
+      <div class="grid-cards">
+        <div class="card mini-card">
+          <i data-lucide="car" style="color: var(--accent-blue); margin-bottom: 8px;"></i>
+          <div class="val" id="val-transport">0.0</div>
+          <div class="label">Transport</div>
+        </div>
+        <div class="card mini-card">
+          <i data-lucide="utensils" style="color: var(--accent-orange); margin-bottom: 8px;"></i>
+          <div class="val" id="val-food">0.0</div>
+          <div class="label">Food</div>
+        </div>
+        <div class="card mini-card">
+          <i data-lucide="shopping-bag" style="color: var(--primary-green); margin-bottom: 8px;"></i>
+          <div class="val" id="val-shopping">0.0</div>
+          <div class="label">Store</div>
+        </div>
+      </div>
+
+      <h3 class="section-title clash">Recent Activity</h3>
+      <div id="activity-feed"></div>
+    </section>
+
+    <!-- 2. STATISTICS TAB -->
+    <section id="tab-stats" class="tab-content" style="display: none;">
+      <h3 class="section-title clash">Weekly Progress</h3>
+      <div class="card chart-container" style="height: 200px; display: flex; align-items: flex-end; gap: 8px; padding-bottom: 40px;">
+        <!-- Feature 07: Weekly Progress Chart (CSS) -->
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">M</span><div style="height: 40%; width:100%; background: var(--primary-green); border-radius: 8px;"></div></div>
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">T</span><div style="height: 60%; width:100%; background: var(--primary-green); border-radius: 8px;"></div></div>
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">W</span><div style="height: 90%; width:100%; background: var(--primary-green); border-radius: 8px;"></div></div>
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">T</span><div style="height: 20%; width:100%; background: var(--primary-green); border-radius: 8px;"></div></div>
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">F</span><div style="height: 50%; width:100%; background: var(--primary-green); border-radius: 8px;"></div></div>
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">S</span><div style="height: 30%; width:100%; background: var(--accent-orange); border-radius: 8px;"></div></div>
+        <div class="chart-bar" style="height: 80%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;"><span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">S</span><div style="height: 0%; width:100%; background: var(--primary-green); border-radius: 8px;"></div></div>
+      </div>
+
+      <!-- Feature 08: Nature's Debt Invoice -->
+      <h3 class="section-title clash">Nature's Debt Invoice</h3>
+      <div class="card" style="font-family: monospace; font-size: 14px; background: #fffcf0; border: 1px dashed #dcdcdc;">
+        <div style="border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; font-weight: 700;">INVOICE #2026-EARTH</div>
+        <div style="display:flex; justify-content: space-between;"><span>Current CO2 Debt:</span> <span>428.4 kg</span></div>
+        <div style="display:flex; justify-content: space-between;"><span>Trees Due:</span> <span>12 Trees</span></div>
+        <div style="display:flex; justify-content: space-between; color: var(--accent-orange); margin-top: 8px; font-weight: 700;"><span>OVERDUE SINCE:</span> <span>Apr 04</span></div>
+        <div style="margin-top: 16px; font-size: 10px; color: #888; text-align:center;">This invoice is calculated based on lifetime consumption metrics.</div>
+      </div>
+    </section>
+
+    <!-- 3. FOREST TAB -->
+    <section id="tab-forest" class="tab-content" style="display: none;">
+      <!-- Feature 03: Trees Visualization -->
+      <h3 class="section-title clash">Your Forest</h3>
+      <div class="card" style="text-align:center; padding: 40px 20px;">
+        <div style="margin-bottom: 20px;">
+            <i data-lucide="trees" style="width: 64px; height: 64px; color: var(--primary-green);"></i>
+        </div>
+        <div class="clash" style="font-size: 24px;">3.5 Trees Saved</div>
+        <p style="color: var(--text-dim); margin-top: 8px;">You have successfully offset enough carbon to grow a small grove this month.</p>
+        <div style="margin-top: 24px; background: var(--bg-main); font-size: 12px; padding: 12px; border-radius: 12px;">
+            Average American Forest Needed: <span style="font-weight: 700;">824 Trees/Year</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. IMPACT TAB -->
+    <section id="tab-impact" class="tab-content" style="display: none;">
+      <!-- Feature 06: Local Impact View -->
+      <h3 class="section-title clash">Local Exposure</h3>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div style="height: 200px; background: #c5e1a5; position:relative; display:flex; align-items:center; justify-content:center;">
+            <div style="position:absolute; width:100%; height: 40%; bottom:0; background: rgba(0, 122, 255, 0.4); backdrop-filter: blur(4px);"></div>
+            <div class="clash" style="background:white; padding:8px 16px; border-radius:100px; z-index:10; font-size:14px; display:flex; align-items:center; gap:8px;">
+                <i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: var(--accent-orange);"></i>
+                Sea Level Rise Risk: High
+            </div>
+        </div>
+        <div style="padding: 24px;">
+            <p style="font-size: 14px; line-height: 1.6;">At your current emission rate, <strong>Phoenix</strong> (or your local area) will see extreme heat days increase by 24% by 2050.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation -->
+    <nav class="bottom-nav">
+      <div class="nav-item active" onclick="switchTab('home')"><i data-lucide="home"></i><span>Home</span></div>
+      <div class="nav-item" onclick="switchTab('stats')"><i data-lucide="bar-chart-3"></i><span>Stats</span></div>
+      <!-- Feature 02 + 05: Logger & Scanner Action -->
+      <div class="add-btn" onclick="toggleLogger()"><i data-lucide="plus"></i></div>
+      <div class="nav-item" onclick="switchTab('forest')"><i data-lucide="sprout"></i><span>Forest</span></div>
+      <div class="nav-item" onclick="switchTab('impact')"><i data-lucide="map"></i><span>Impact</span></div>
+    </nav>
+
+    <!-- Feature 02: Activity Logger (Overlay) -->
+    <div id="logger-modal" style="display: none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; align-items:flex-end; justify-content:center;">
+        <div class="card animate-in" style="width:100%; max-width:500px; border-radius: 32px 32px 0 0; margin-bottom:0; padding-bottom: 60px;">
+            <div style="width: 40px; height: 4px; background: #ddd; margin: 0 auto 20px; border-radius: 10px;"></div>
+            <h2 class="clash" style="margin-bottom: 24px;">Log Activity</h2>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div class="card mini-card" style="border: 2px solid var(--primary-green); margin:0;" onclick="logQuick('Food')"><i data-lucide="utensils"></i> Food</div>
+                <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="logQuick('Transport')"><i data-lucide="car"></i> Car</div>
+                <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="logQuick('Shopping')"><i data-lucide="shopping-bag"></i> Order</div>
+                <!-- Feature 05: Receipt Scanner -->
+                <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0; background: #e3f2fd;" onclick="alert('Opening Receipt Scanner...')"><i data-lucide="camera"></i> Scan</div>
+            </div>
+            <button onclick="toggleLogger()" style="width:100%; border:none; background: #000; color:#fff; padding:16px; border-radius:100px; font-weight:700;">Cancel</button>
+        </div>
+    </div>
+
+  </div>
+
+  <!-- Lucide Implementation -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
