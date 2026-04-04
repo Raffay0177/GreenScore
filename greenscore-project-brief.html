@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenScore — Project Brief</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --green-deep: #0a2e1a;
+      --green-mid: #1a5c35;
+      --green-bright: #2ecc71;
+      --green-neon: #00ff88;
+      --earth: #8B5E3C;
+      --cream: #f5f0e8;
+      --warning: #ff6b35;
+      --white: #ffffff;
+      --gray: #a0a0a0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--green-deep);
+      color: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px 20px;
+      position: relative;
+      background: radial-gradient(ellipse at 50% 0%, #1a5c3550 0%, transparent 70%),
+        radial-gradient(ellipse at 80% 80%, #00ff8815 0%, transparent 60%);
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, #2ecc7115 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.4;
+    }
+
+    .hackathon-tag {
+      display: inline-block;
+      background: #00ff8820;
+      border: 1px solid var(--green-neon);
+      color: var(--green-neon);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 8px 20px;
+      border-radius: 100px;
+      margin-bottom: 30px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 #00ff8830;
+      }
+
+      50% {
+        box-shadow: 0 0 0 8px #00ff8800;
+      }
+    }
+
+    .hero h1 {
+      font-family: 'Clash Display', sans-serif;
+      font-size: clamp(64px, 12vw, 120px);
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -3px;
+      margin-bottom: 10px;
+    }
+
+    .hero h1 .green {
+      color: var(--green-neon);
+    }
+
+    .hero-sub {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(16px, 3vw, 22px);
+      color: var(--gray);
+      max-width: 600px;
+      margin: 20px auto 50px;
+      font-weight: 400;
+    }
+
+    .hero-sub span {
+      color: var(--green-bright);
+      font-weight: 600;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .hero-stat {
+      text-align: center;
+    }
+
+    .hero-stat .num {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--green-neon);
+      display: block;
+    }
+
+    .hero-stat .label {
+      font-size: 12px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* SECTIONS */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 80px 30px;
+    }
+
+    .section-tag {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--green-neon);
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-tag::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #2ecc7130;
+      max-width: 60px;
+    }
+
+    h2 {
+      font-family: 'Clash Display', sans-serif;
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 40px;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #2ecc7140, transparent);
+      margin: 0 30px;
+    }
+
+    /* PROBLEM SECTION */
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 40px;
+    }
+
+    .problem-card {
+      background: #ffffff08;
+      border: 1px solid #2ecc7120;
+      border-radius: 16px;
+      padding: 28px;
+      transition: all 0.3s ease;
+    }
+
+    .problem-card:hover {
+      background: #ffffff12;
+      border-color: #2ecc7145;
+      transform: translateY(-2px);
+    }
+
+    .problem-icon {
+      font-size: 32px;
+      margin-bottom: 14px;
+      display: block;
+    }
+
+    .problem-card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--white);
+    }
+
+    .problem-card p {
+      font-size: 13px;
+      color: var(--gray);
+      line-height: 1.7;
+    }
+
+    /* SOLUTION */
+    .solution-box {
+      background: linear-gradient(135deg, #1a5c3540, #0a2e1a);
+      border: 1px solid var(--green-bright);
+      border-radius: 24px;
+      padding: 50px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .solution-box::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, #00ff8808 0%, transparent 60%);
+    }
+
+    .solution-box .big-text {
+      font-family: 'Clash Display', sans-serif;
+      font-size: clamp(20px, 4vw, 36px);
+      font-weight: 600;
+      line-height: 1.4;
+      max-width: 700px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .solution-box .big-text .highlight {
+      color: var(--green-neon);
+      border-bottom: 2px solid var(--green-neon);
+    }
+
+    /* FEATURES */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: #ffffff06;
+      border: 1px solid #ffffff10;
+      border-radius: 20px;
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card.primary {
+      border-color: #2ecc7140;
+      background: #2ecc7108;
+    }
+
+    .feature-card.primary::after {
+      content: 'CORE';
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--green-neon);
+      border: 1px solid var(--green-neon);
+      padding: 3px 8px;
+      border-radius: 100px;
+    }
+
+    .feature-card.wow::after {
+      content: 'WOW';
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--warning);
+      border: 1px solid var(--warning);
+      padding: 3px 8px;
+      border-radius: 100px;
+    }
+
+    .feature-num {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 48px;
+      font-weight: 700;
+      color: #ffffff10;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .feature-card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--white);
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--gray);
+      line-height: 1.7;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-top: 16px;
+      font-weight: 500;
+    }
+
+    .tag-green {
+      background: #2ecc7120;
+      color: var(--green-bright);
+    }
+
+    .tag-orange {
+      background: #ff6b3520;
+      color: var(--warning);
+    }
+
+    /* EMOTIONAL */
+    .emotional-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .emotional-item {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 20px;
+      background: #ffffff06;
+      border-radius: 14px;
+      border: 1px solid #ffffff08;
+    }
+
+    .emotional-item .emoji {
+      font-size: 28px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .emotional-item h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+
+    .emotional-item p {
+      font-size: 12px;
+      color: var(--gray);
+      line-height: 1.6;
+    }
+
+    /* DATA SOURCES */
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+
+    .data-pill {
+      background: #ffffff08;
+      border: 1px solid #ffffff12;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .data-pill .api-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--green-bright);
+    }
+
+    .data-pill .api-use {
+      font-size: 11px;
+      color: var(--gray);
+    }
+
+    /* TIMELINE */
+    .timeline {
+      position: relative;
+      padding-left: 40px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, var(--green-neon), transparent);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 28px;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -34px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--green-neon);
+      box-shadow: 0 0 10px var(--green-neon);
+    }
+
+    .timeline-item .time {
+      font-size: 11px;
+      color: var(--green-neon);
+      font-weight: 600;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .timeline-item h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+
+    .timeline-item p {
+      font-size: 12px;
+      color: var(--gray);
+    }
+
+    /* DOWNLOAD HOOKS */
+    .hooks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .hook-card {
+      background: #ffffff06;
+      border: 1px solid #ffffff10;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .hook-card:hover {
+      border-color: #2ecc7140;
+      transform: translateY(-3px);
+    }
+
+    .hook-card .hook-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .hook-card h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+
+    .hook-card p {
+      font-size: 12px;
+      color: var(--gray);
+    }
+
+    /* TAGLINE */
+    .tagline-section {
+      text-align: center;
+      padding: 100px 30px;
+      background: radial-gradient(ellipse at center, #1a5c3530 0%, transparent 70%);
+    }
+
+    .tagline-section .tagline {
+      font-family: 'Clash Display', sans-serif;
+      font-size: clamp(28px, 5vw, 56px);
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      max-width: 800px;
+      margin: 0 auto 30px;
+    }
+
+    .tagline-section .tagline .green {
+      color: var(--green-neon);
+    }
+
+    .tagline-section p {
+      font-size: 16px;
+      color: var(--gray);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    /* TREES VISUAL */
+    .trees-demo {
+      background: #ffffff06;
+      border: 1px solid #2ecc7130;
+      border-radius: 20px;
+      padding: 40px;
+      margin-top: 30px;
+      font-family: 'DM Sans', monospace;
+    }
+
+    .trees-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .trees-row .label {
+      font-size: 12px;
+      color: var(--gray);
+      width: 120px;
+      flex-shrink: 0;
+    }
+
+    .trees-row .trees {
+      font-size: 18px;
+      letter-spacing: 2px;
+      flex: 1;
+    }
+
+    .trees-row .count {
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      color: var(--green-bright);
+      font-weight: 700;
+    }
+
+    /* TECH STACK */
+    .stack-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .stack-item {
+      background: #ffffff08;
+      border: 1px solid #ffffff15;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--cream);
+    }
+
+    .stack-item span {
+      color: var(--green-neon);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      margin-right: 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 40px;
+      border-top: 1px solid #ffffff10;
+      font-size: 12px;
+      color: var(--gray);
+      letter-spacing: 1px;
+    }
+
+    footer strong {
+      color: var(--green-neon);
+    }
+
+    @media (max-width: 600px) {
+      section {
+        padding: 60px 20px;
+      }
+
+      .solution-box {
+        padding: 30px 24px;
+      }
+
+      .trees-demo {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hackathon-tag">🏆 Amazon Sustainability Track — Hackathon Brief</div>
+    <h1>GREEN<span class="green">SCORE</span></h1>
+    <p class="hero-sub">
+      The <span>carbon calorie tracker</span> that makes your environmental impact feel personal, emotional, and worth
+      fixing.
+    </p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="num">47kg</span>
+        <span class="label">US Daily CO₂ Avg</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">824</span>
+        <span class="label">Trees Needed/Day</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">$3,200</span>
+        <span class="label">Wasted Yearly</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">30%</span>
+        <span class="label">US Food Wasted</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PROBLEM -->
+  <section>
+    <div class="section-tag">The Problem</div>
+    <h2>Why Americans can't fix what they can't see</h2>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <span class="problem-icon">🚗</span>
+        <h3>Car Dependency</h3>
+        <p>America is built around cars. Transportation is the #1 source of US carbon emissions, yet most people have
+          zero visibility into their personal contribution.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">🛒</span>
+        <h3>Overconsumption</h3>
+        <p>5% of the world's population produces 30% of its waste. Same-day delivery and fast fashion have made buying
+          and discarding the default behavior.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">🍔</span>
+        <h3>Food Waste</h3>
+        <p>The US wastes 80 million tons of food per year. Most ends up in landfills producing methane — yet grocery
+          decisions feel invisible and consequence-free.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">🧠</span>
+        <h3>The Awareness Gap</h3>
+        <p>People know climate change is real but don't connect daily habits to global impact. There's no immediate
+          feedback loop between action and consequence.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SOLUTION -->
+  <section>
+    <div class="section-tag">The Solution</div>
+    <div class="solution-box">
+      <div class="big-text">
+        GreenScore is like <span class="highlight">MyFitnessPal for your carbon footprint</span> — log your day, see
+        your impact in trees, beat the US average, and get AI-powered swaps that actually save you money.
+      </div>
+    </div>
+
+    <!-- Trees Demo -->
+    <div class="trees-demo">
+      <p
+        style="font-size:11px; letter-spacing:2px; color: var(--green-neon); text-transform:uppercase; margin-bottom:20px;">
+        🌳 Live Example — Your Day vs Average</p>
+      <div class="trees-row">
+        <span class="label">You today</span>
+        <span class="trees">🌳🌳🌳🌳🌳🌳🌳</span>
+        <span class="count">280 trees</span>
+      </div>
+      <div class="trees-row">
+        <span class="label">US Average</span>
+        <span class="trees">🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳🌳</span>
+        <span class="count">824 trees</span>
+      </div>
+      <div style="margin-top:20px; padding-top:20px; border-top:1px solid #ffffff10;">
+        <p style="color: var(--green-bright); font-family:'Syne',sans-serif; font-weight:700; font-size:14px;">
+          ✅ You saved 544 trees worth of work today — top 15% of your city!
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- FEATURES -->
+  <section>
+    <div class="section-tag">Features</div>
+    <h2>What you're building</h2>
+    <div class="features-grid">
+      <div class="feature-card primary">
+        <div class="feature-num">01</div>
+        <h3>🌡️ Daily Carbon Dashboard</h3>
+        <p>A clean homepage with a speedometer going green to red. Shows today's CO₂ score and live comparison to the US
+          daily average of 47kg.</p>
+        <span class="feature-tag tag-green">Build First</span>
+      </div>
+      <div class="feature-card primary">
+        <div class="feature-num">02</div>
+        <h3>📝 Activity Logger</h3>
+        <p>3 simple daily inputs: Transport (drove/bus/walked), Food (meat/veggie/vegan), Shopping (online
+          order/groceries/clothes). Like logging meals in MyFitnessPal.</p>
+        <span class="feature-tag tag-green">Build First</span>
+      </div>
+      <div class="feature-card primary">
+        <div class="feature-num">03</div>
+        <h3>🌳 Trees Visualization</h3>
+        <p>Convert all emissions into trees needed to absorb your impact. Show your forest vs the average American's
+          forest. Dense vs sparse. Emotional and instantly understood.</p>
+        <span class="feature-tag tag-green">Build First</span>
+      </div>
+      <div class="feature-card primary">
+        <div class="feature-num">04</div>
+        <h3>🤖 AI Tip Engine</h3>
+        <p>After each log entry, Claude gives one personalized swap suggestion with exact CO₂ savings. "Your burger =
+          3.5kg. Swap to chicken, save 2kg." Powered by Anthropic API.</p>
+        <span class="feature-tag tag-green">Build First</span>
+      </div>
+      <div class="feature-card wow">
+        <div class="feature-num">05</div>
+        <h3>📸 Receipt Scanner</h3>
+        <p>User snaps a photo of their grocery receipt. AI reads items and auto-calculates emissions per product. No
+          manual logging. This is your demo centerpiece moment.</p>
+        <span class="feature-tag tag-orange">Wow Factor</span>
+      </div>
+      <div class="feature-card wow">
+        <div class="feature-num">06</div>
+        <h3>🏙️ Local Impact View</h3>
+        <p>"At your current rate, your city's beach floods by 2075." Tie emissions to their actual location. Local =
+          emotional. Global = ignored.</p>
+        <span class="feature-tag tag-orange">Wow Factor</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">07</div>
+        <h3>📈 Weekly Progress Chart</h3>
+        <p>7-day bar chart showing green vs red days. One clear insight: "You were 20% greener than last week." Simple,
+          readable, motivating.</p>
+        <span class="feature-tag tag-green">Build Second</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">08</div>
+        <h3>⚖️ Nature's Debt Invoice</h3>
+        <p>Frame emissions as a debt: "You owe 438 trees today. You paid back 12. Still owe 426." Debt feels urgent in a
+          way percentages never do.</p>
+        <span class="feature-tag tag-green">Build Second</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- EMOTIONAL HOOKS -->
+  <section>
+    <div class="section-tag">Emotional Design</div>
+    <h2>Make users feel something</h2>
+    <div class="emotional-list">
+      <div class="emotional-item">
+        <span class="emoji">🌳</span>
+        <div>
+          <h4>Living Forest</h4>
+          <p>Trees visually wither on bad days, bloom on good ones. Watching YOUR forest die feels genuinely bad.</p>
+        </div>
+      </div>
+      <div class="emotional-item">
+        <span class="emoji">👶</span>
+        <div>
+          <h4>Future Self Message</h4>
+          <p>"At this rate your child will inherit summers 4°F hotter." Makes it personal, not abstract.</p>
+        </div>
+      </div>
+      <div class="emotional-item">
+        <span class="emoji">🐻</span>
+        <div>
+          <h4>Reactive Animal</h4>
+          <p>A polar bear that looks happy on green days and sad on bad ones. People get attached. Attachment drives
+            retention.</p>
+        </div>
+      </div>
+      <div class="emotional-item">
+        <span class="emoji">📍</span>
+        <div>
+          <h4>Local Reality</h4>
+          <p>"847 people in your city drove alone today, dropping your neighborhood's air quality." Local = emotional.
+          </p>
+        </div>
+      </div>
+      <div class="emotional-item">
+        <span class="emoji">😤</span>
+        <div>
+          <h4>Social Comparison</h4>
+          <p>"You're in the top 15% of your city." Nobody wants to be the worst on their street. Shame and pride both
+            drive behavior.</p>
+        </div>
+      </div>
+      <div class="emotional-item">
+        <span class="emoji">🕰️</span>
+        <div>
+          <h4>Time Machine</h4>
+          <p>Show two futures side by side: your current path vs your green path. Your lifetime impact = net positive 🌱
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- WHY DOWNLOAD -->
+  <section>
+    <div class="section-tag">Download Motivation</div>
+    <h2>Why would anyone download this?</h2>
+    <div class="hooks-grid">
+      <div class="hook-card">
+        <span class="hook-icon">💰</span>
+        <h4>Saves Money</h4>
+        <p>Lower carbon = less gas, cheaper groceries, fewer impulse buys. Lead with financial benefit.</p>
+      </div>
+      <div class="hook-card">
+        <span class="hook-icon">🏆</span>
+        <h4>Social Status</h4>
+        <p>Shareable green score cards for Instagram. Nobody shares guilt. Everyone shares wins.</p>
+      </div>
+      <div class="hook-card">
+        <span class="hook-icon">🎮</span>
+        <h4>It's Addictive</h4>
+        <p>Streaks, leaderboards, leveling up your forest. Duolingo proved games beat guilt trips every time.</p>
+      </div>
+      <div class="hook-card">
+        <span class="hook-icon">👨‍👩‍👧</span>
+        <h4>For My Kids</h4>
+        <p>Parents are the most motivated demographic. Fear for their children's future is extremely powerful.</p>
+      </div>
+      <div class="hook-card">
+        <span class="hook-icon">🏢</span>
+        <h4>Work Requires It</h4>
+        <p>Companies need ESG reporting. HR departments pay for this. Biggest real-world distribution channel.</p>
+      </div>
+    </div>
+
+    <div
+      style="margin-top:30px; padding:24px; background:#ffffff06; border-radius:16px; border-left:3px solid var(--green-neon);">
+      <p style="font-family:'Syne',sans-serif; font-size:15px; font-weight:700; color:var(--white); margin-bottom:8px;">
+        📢 Your App Store Pitch</p>
+      <p style="font-size:14px; color:var(--gray); font-style:italic;">"The average American wastes $3,200/year on
+        high-carbon habits. GreenScore shows you exactly where — and how to stop."</p>
+      <p style="font-size:11px; color: var(--green-neon); margin-top:12px; font-weight:600;">NOT: "Track your carbon
+        footprint to save the planet" ❌</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- DATA SOURCES -->
+  <section>
+    <div class="section-tag">Data Sources</div>
+    <h2>Where the data comes from</h2>
+    <div class="data-grid">
+      <div class="data-pill">
+        <span class="api-name">Carbon Interface API</span>
+        <span class="api-use">Core emissions calculations</span>
+      </div>
+      <div class="data-pill">
+        <span class="api-name">Open Food Facts</span>
+        <span class="api-use">3M+ food products with eco-scores</span>
+      </div>
+      <div class="data-pill">
+        <span class="api-name">Google Maps API</span>
+        <span class="api-use">Route distances for transport</span>
+      </div>
+      <div class="data-pill">
+        <span class="api-name">EPA Data</span>
+        <span class="api-use">US emissions benchmarks</span>
+      </div>
+      <div class="data-pill">
+        <span class="api-name">WattTime API</span>
+        <span class="api-use">Carbon intensity by location</span>
+      </div>
+      <div class="data-pill">
+        <span class="api-name">Anthropic API</span>
+        <span class="api-use">AI tips + receipt scanning</span>
+      </div>
+    </div>
+
+    <div style="margin-top:24px; padding:20px; background: #2ecc7110; border-radius:14px; border:1px solid #2ecc7130;">
+      <p style="font-size:13px; color: var(--green-bright); font-weight:600; margin-bottom:6px;">🌳 The Tree Math</p>
+      <p style="font-size:13px; color: var(--gray);">1 tree absorbs ~21kg CO₂/year = 0.057kg/day. So: <strong
+          style="color:var(--white)">Trees needed = Your Emissions ÷ 0.057</strong>. A burger (3.5kg) needs 61 trees.
+        Average American day (47kg) needs 824 trees.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- BUILD TIMELINE -->
+  <section>
+    <div class="section-tag">Build Order</div>
+    <h2>How to spend your hackathon hours</h2>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="time">Hour 1–2</div>
+        <h4>Setup + API Connections</h4>
+        <p>React project, Carbon Interface API key, Open Food Facts, Anthropic API. Get data flowing before building UI.
+        </p>
+      </div>
+      <div class="timeline-item">
+        <div class="time">Hour 3–5</div>
+        <h4>Dashboard + Activity Logger</h4>
+        <p>The core loop. Log activity → see CO₂ → see trees. This is the MVP. Get this working first.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="time">Hour 6–8</div>
+        <h4>Trees Visualization + AI Tips</h4>
+        <p>Your two wow factors. Animate the forest. Wire up the Anthropic API for instant swap suggestions.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="time">Hour 9–10</div>
+        <h4>Weekly Chart + Carbon Budget</h4>
+        <p>Progress bar, 7-day chart, nature's debt invoice. Makes the app feel complete and data-rich.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="time">Hour 11–12</div>
+        <h4>Receipt Scanner</h4>
+        <p>The demo centerpiece. Upload grocery photo → AI reads items → shows CO₂ per product. Judges will love this
+          moment.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="time">Hour 13–14</div>
+        <h4>Polish + Bug Fixes</h4>
+        <p>Clean up the UI, fix edge cases, make the demo flow smooth. Don't add features here.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="time">Hour 15–16</div>
+        <h4>Demo Preparation</h4>
+        <p>Practice your 2-minute pitch. Dashboard → log burger → AI tip → receipt scan → weekly chart → impact
+          statement.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- TECH STACK -->
+  <section>
+    <div class="section-tag">Tech Stack</div>
+    <h2>Recommended stack</h2>
+    <div class="stack-list">
+      <div class="stack-item"><span>Frontend</span>React + Tailwind CSS</div>
+      <div class="stack-item"><span>Backend</span>Node.js / Python Flask</div>
+      <div class="stack-item"><span>AI</span>Anthropic Claude API</div>
+      <div class="stack-item"><span>Database</span>Firebase (fast setup)</div>
+      <div class="stack-item"><span>Emissions</span>Carbon Interface API</div>
+      <div class="stack-item"><span>Food Data</span>Open Food Facts</div>
+      <div class="stack-item"><span>Maps</span>Google Maps API</div>
+      <div class="stack-item"><span>Charts</span>Recharts or Chart.js</div>
+    </div>
+
+    <div style="margin-top:30px; padding:24px; background:#ff6b3510; border:1px solid #ff6b3530; border-radius:16px;">
+      <p
+        style="font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:var(--warning); margin-bottom:8px;">
+        🚫 Don't Build These</p>
+      <p style="font-size:13px; color:var(--gray);">User authentication, payment systems, complex onboarding, perfect UI
+        polish, too many data categories. Focus on what judges can SEE and INTERACT with in 2 minutes.</p>
+    </div>
+  </section>
+
+  <!-- TAGLINE -->
+  <div class="tagline-section">
+    <div class="tagline">
+      "See your world in <span class="green">trees</span>, not numbers."
+    </div>
+    <p>The planet is the outcome. Personal benefit is the reason to download. Build both.</p>
+  </div>
+
+  <footer>
+    <strong>GreenScore</strong> — Amazon Sustainability Track · Built for Hackathon 🌱
+  </footer>
+
+</body>
+
+</html>
