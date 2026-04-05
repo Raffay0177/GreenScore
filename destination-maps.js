@@ -195,6 +195,31 @@ export function onCarLogViewChange(viewKey) {
     if (viewKey !== 'destination') collapseMapExpanded();
 }
 
+export function getDestinationInfo() {
+    return {
+        startLatLng,
+        startLabel,
+        endLatLng,
+        endLabel
+    };
+}
+
+export function resetDestinationInfo() {
+    startLatLng = null;
+    startLabel = '';
+    endLatLng = null;
+    endLabel = '';
+    if (startMarker) { startMarker.setMap(null); startMarker = null; }
+    clearEndMarker();
+    const input = document.getElementById('dest-start-input');
+    if (input) input.value = '';
+    const queryInput = document.getElementById('dest-query-input');
+    if (queryInput) queryInput.value = '';
+    const listEl = document.getElementById('dest-results-list');
+    if (listEl) listEl.innerHTML = '';
+    syncStartSummary();
+}
+
 export async function prepareDestinationView() {
     const noKey = document.getElementById('dest-no-key-msg');
     if (!MAPS_KEY) {
@@ -415,6 +440,9 @@ function renderResultList(ranked, listEl) {
             if (queryInput) queryInput.value = name;
             // Collapse the results list
             listEl.innerHTML = '';
+            // Update Back button to "Done" since a destination is now set
+            const backBtn = document.getElementById('car-log-back');
+            if (backBtn && !backBtn.hidden) backBtn.textContent = 'Done';
         });
         listEl.appendChild(btn);
     });

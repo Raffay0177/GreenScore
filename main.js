@@ -1,5 +1,5 @@
 import { createAuth0Client } from '@auth0/auth0-spa-js';
-import { initDestinationMaps, prepareDestinationView, onCarLogViewChange } from './destination-maps.js';
+import { initDestinationMaps, prepareDestinationView, onCarLogViewChange, getDestinationInfo, resetDestinationInfo } from './destination-maps.js';
 
 // Global state
 let auth0Client = null;
@@ -1011,7 +1011,8 @@ let carViewStack = ['main'];
 const carLogState = {
     selectedCarId: null,
     tempCar: null,
-    pendingMatch: null
+    pendingMatch: null,
+    publicTransportMode: false
 };
 
 const CAR_VIEW_IDS = {
@@ -1032,7 +1033,16 @@ function carSyncViews() {
         if (el) el.hidden = k !== key;
     }
     const back = document.getElementById('car-log-back');
-    if (back) back.hidden = carViewStack.length <= 1;
+    if (back) {
+        back.hidden = carViewStack.length <= 1;
+        // Show "Done" instead of "Back" when on destination view and a destination is selected
+        if (key === 'destination') {
+            const destInfo = getDestinationInfo();
+            back.textContent = destInfo.endLatLng ? 'Done' : 'Back';
+        } else {
+            back.textContent = 'Back';
+        }
+    }
     if (window.lucide) lucide.createIcons();
     onCarLogViewChange(key);
     if (key === 'destination') void prepareDestinationView();
@@ -1384,10 +1394,15 @@ window.openCarLogModal = async () => {
         return;
     }
     toggleLogger();
+    carLogState.publicTransportMode = false;
     const modal = document.getElementById('car-log-modal');
     if (!modal) return;
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
+    const title = document.getElementById('car-log-title');
+    const sub = document.getElementById('car-log-sub');
+    if (title) title.textContent = 'Log a trip';
+    if (sub) sub.textContent = 'Select a vehicle, add one, then log your trip.';
     carNavReset();
     try {
         await fetchGarageCars();
@@ -1399,11 +1414,42 @@ window.openCarLogModal = async () => {
     if (window.lucide) lucide.createIcons();
 };
 
-window.closeCarLogModal = () => {
+window.openPublicTransportModal = async () => {
+    try {
+        if (!(await auth0Client.isAuthenticated())) {
+            alert('Please log in to log transit trips.');
+            auth0Client.loginWithRedirect();
+            return;
+        }
+    } catch (_) {
+        alert('Please log in to log transit trips.');
+        return;
+    }
+    toggleLogger();
+    carLogState.publicTransportMode = true;
+    const modal = document.getElementById('car-log-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    const title = document.getElementById('car-log-title');
+    const sub = document.getElementById('car-log-sub');
+    if (title) title.textContent = 'Log a bus trip';
+    if (sub) sub.textContent = 'Set your start & destination, then log to see bus routes.';
+    carViewStack = ['main'];
+    carSyncViews();
+    // Jump straight to destination
+    carNavPush('destination');
+};
+
+window.closeCarLogModal = (keepDestination = false) => {
     const modal = document.getElementById('car-log-modal');
     if (modal) {
         modal.style.display = 'none';
         modal.setAttribute('aria-hidden', 'true');
+    }
+    // Close discards destination info unless explicitly kept
+    if (!keepDestination) {
+        resetDestinationInfo();
     }
     carNavReset();
     resetCarReviewUI();
@@ -1412,7 +1458,20 @@ window.closeCarLogModal = () => {
 function initCarLogUI() {
     initDestinationMaps();
     const back = document.getElementById('car-log-back');
-    if (back) back.onclick = () => carNavPop();
+    if (back) {
+        back.onclick = () => {
+            const currentView = carViewStack[carViewStack.length - 1];
+            // If on destination view and pressing "Done", keep destination info
+            if (currentView === 'destination') {
+                const destInfo = getDestinationInfo();
+                if (destInfo.endLatLng) {
+                    // Update the destination pill on main view
+                    updateDestinationPill();
+                }
+            }
+            carNavPop();
+        };
+    }
 
     const modal = document.getElementById('car-log-modal');
     if (modal) {
@@ -1628,6 +1687,40 @@ function saveCarTemporaryChoice() {
     updateCarSelectedPill();
 }
 
+function updateDestinationPill() {
+    const destInfo = getDestinationInfo();
+    const tile = document.querySelector('[data-car-nav="destination"]');
+    if (!tile) return;
+    const small = tile.querySelector('small');
+    if (small) {
+        if (destInfo.endLatLng && destInfo.endLabel) {
+            small.textContent = `→ ${destInfo.endLabel.slice(0, 25)}`;
+            small.style.color = 'var(--primary-green)';
+        } else {
+            small.textContent = 'Set start & end';
+            small.style.color = '';
+        }
+    }
+}
+
+function haversineDistanceKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateCarTripEmissions(distKm, kgPerTrip, carLabel) {
+    // kgPerTrip is the AI estimate for a ~10km trip.
+    // Scale linearly by distance, baseline ~10km.
+    const baselineKm = 10;
+    const scaled = (distKm / baselineKm) * kgPerTrip;
+    return Math.max(0.1, Math.round(scaled * 10) / 10);
+}
+
 async function submitCarTripLog() {
     try {
         if (!(await auth0Client.isAuthenticated())) {
@@ -1638,28 +1731,72 @@ async function submitCarTripLog() {
     } catch (_) {
         return;
     }
+
+    // Check if public transport mode
+    const isPublicTransport = carLogState.publicTransportMode === true;
+
+    // Validate: car selected (skip for public transport)
+    if (!isPublicTransport) {
+        if (!carLogState.tempCar && !carLogState.selectedCarId) {
+            // Navigate to select view
+            try { await fetchGarageCars(); } catch (_) { carLogGarageCache = []; }
+            renderGarageList();
+            carNavPush('select');
+            return;
+        }
+    }
+
+    // Validate: destination set
+    const destInfo = getDestinationInfo();
+    if (!destInfo.endLatLng) {
+        carNavPush('destination');
+        return;
+    }
+
+    // Validate: start set (use map center or current location default)
+    if (!destInfo.startLatLng) {
+        carNavPush('destination');
+        return;
+    }
+
+    // Calculate distance
+    const distKm = haversineDistanceKm(
+        destInfo.startLatLng.lat, destInfo.startLatLng.lng,
+        destInfo.endLatLng.lat, destInfo.endLatLng.lng
+    );
+
     let label;
     let value;
     let carId = null;
     let temporaryCar = false;
-    if (carLogState.tempCar) {
-        label = `Trip — ${carLogState.tempCar.label}`;
-        value = carLogState.tempCar.estimatedKgPerTrip;
+
+    if (isPublicTransport) {
+        // Public transport: ~0.089 kg CO2 per km (bus average)
+        value = Math.max(0.1, Math.round(distKm * 0.089 * 10) / 10);
+        label = `Bus — ${destInfo.startLabel || 'Start'} → ${destInfo.endLabel} (${distKm.toFixed(1)} km)`;
+    } else if (carLogState.tempCar) {
+        label = `Trip — ${carLogState.tempCar.label} → ${destInfo.endLabel} (${distKm.toFixed(1)} km)`;
+        value = estimateCarTripEmissions(distKm, carLogState.tempCar.estimatedKgPerTrip, carLogState.tempCar.label);
         temporaryCar = true;
     } else if (carLogState.selectedCarId) {
         const c = carLogGarageCache.find((x) => String(x._id) === String(carLogState.selectedCarId));
         if (!c) {
-            alert('Select a vehicle from your garage or add one.');
+            try { await fetchGarageCars(); } catch (_) { carLogGarageCache = []; }
+            renderGarageList();
+            carNavPush('select');
             return;
         }
-        label = `Trip — ${c.label}`;
-        value = Number(c.estimatedKgPerTrip) || 2.4;
+        label = `Trip — ${c.label} → ${destInfo.endLabel} (${distKm.toFixed(1)} km)`;
+        value = estimateCarTripEmissions(distKm, Number(c.estimatedKgPerTrip) || 2.4, c.label);
         carId = c._id;
         temporaryCar = false;
     } else {
-        alert('Select a vehicle (garage or temporary) before logging a trip.');
+        try { await fetchGarageCars(); } catch (_) { carLogGarageCache = []; }
+        renderGarageList();
+        carNavPush('select');
         return;
     }
+
     const intensity = value > 4 ? 'High' : value > 2.5 ? 'Medium' : 'Low';
     try {
         const token = await auth0Client.getTokenSilently();
@@ -1672,7 +1809,7 @@ async function submitCarTripLog() {
             body: JSON.stringify({
                 label,
                 value,
-                icon: 'car',
+                icon: isPublicTransport ? 'activity' : 'car',
                 intensity,
                 carId: temporaryCar ? null : carId,
                 temporaryCar
@@ -1682,7 +1819,18 @@ async function submitCarTripLog() {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || 'Could not log trip');
         }
-        closeCarLogModal();
+
+        // If public transport, redirect to Google Maps with transit directions
+        if (isPublicTransport && destInfo.startLatLng && destInfo.endLatLng) {
+            const origin = `${destInfo.startLatLng.lat},${destInfo.startLatLng.lng}`;
+            const destination = `${destInfo.endLatLng.lat},${destInfo.endLatLng.lng}`;
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=transit&transit_mode=bus`;
+            window.open(mapsUrl, '_blank');
+        }
+
+        carLogState.publicTransportMode = false;
+        closeCarLogModal(true);
+        resetDestinationInfo();
         refreshData();
     } catch (err) {
         alert(err.message || 'Could not log trip');
