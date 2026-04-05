@@ -728,6 +728,33 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   pointer-events: none;
 }
 
+/* Processing Spinner & Feed Row Processing State */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(0,0,0,0.1);
+  border-top-color: var(--primary-green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.activity-feed-row-processing .activity-feed-thumb-placeholder {
+  background: #f5f5f5;
+  border-color: #eee;
+}
+
+.activity-feed-row-processing .activity-feed-title {
+  color: #999;
+}
+
+.activity-feed-row-error .activity-feed-value {
+  color: #e74c3c !important;
+}
+
 @keyframes pulse-red-border {
   0% { transform: scale(1); opacity: 1; }
   100% { transform: scale(1.4); opacity: 0; }

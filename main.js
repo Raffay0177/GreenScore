@@ -553,41 +553,94 @@ window.captureCameraFrame = async () => {
     const canvas = document.getElementById('scanner-capture-canvas');
     if (!video || !canvas) return;
 
-    // Show loading UI 
-    const originalContent = video.parentElement.innerHTML;
-    const scannerContainer = video.parentElement;
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.style = "position:absolute; inset:0; background:rgba(0,0,0,0.7); color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; border-radius:24px;";
-    loadingOverlay.innerHTML = '<div class="spinner" style="width:40px; height:40px; border:4px solid #fff; border-top-color:var(--primary-green); border-radius:50%; animation: spin 1s linear infinite;"></div><p style="margin-top:16px; font-weight:600;">AI Analyzing...</p>';
-    scannerContainer.appendChild(loadingOverlay);
-
     try {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
         const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        
+        const mode = currentScannerMode;
+        
+        // --- OPTIMISTIC UI: Close scanner and show placeholder ---
+        stopCameraAndReturn();
+        toggleLogger();
 
-        let endpoint = '/api/scan'; // Default (receipt/meal)
-        if (currentScannerMode === 'barcode') endpoint = '/api/food/scan-barcode';
-        if (currentScannerMode === 'label') endpoint = '/api/food/estimate'; // We treat label as description for now or specialized?
+        const tempId = 'temp-' + Date.now();
+        const pendingAct = {
+            id: tempId,
+            _id: tempId,
+            label: 'Analyzing Image...',
+            value: 0,
+            status: 'processing',
+            timestamp: new Date().toISOString(),
+            icon: mode === 'barcode' ? 'barcode' : 'camera'
+        };
 
-        // If it's pure description, we need a special prompt for image labels?
-        // Actually, let's map 'label' to a new image-based endpoint if needed, 
-        // OR just send it to barcode and let AI figure it out.
-        // For now, let's use barcode for both 'barcode' and 'label' as they are similar image-based ID tasks.
-        if (currentScannerMode === 'label') endpoint = '/api/food/scan-barcode'; 
+        // Inject at top
+        if (carbonSnapshot) {
+            carbonSnapshot.activities = [pendingAct, ...(carbonSnapshot.activities || [])];
+            mountActivityFeedFromSnapshot();
+        }
+
+        // Kick off background processing
+        handleBackgroundScan(base64, mode, tempId);
+
+    } catch (err) {
+        console.error("Capture failed:", err);
+        alert("Failed to capture image.");
+    }
+};
+
+const handleBackgroundScan = async (base64, mode, tempId) => {
+    try {
+        let endpoint = '/api/scan'; 
+        if (mode === 'barcode' || mode === 'label') endpoint = '/api/food/scan-barcode';
 
         const results = await sendToAI(base64, endpoint);
-        const normalized = results.items ? results : { items: [results], totalCO2: results.value };
+        const normalizedItems = results.items ? results.items : [results];
+
+        const token = await auth0Client.getTokenSilently();
         
-        stopCameraAndReturn();
-        renderScannedItems(normalized, base64);
-        toggleLogger(); // Close picker
-        document.getElementById('scanner-modal').style.display = 'flex';
+        // Log all items to the DB
+        const savedActivities = [];
+        for (const item of normalizedItems) {
+            const logRes = await fetch('/api/log', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    label: item.label,
+                    value: item.value,
+                    icon: item.category === 'Food' ? 'utensils' : 'activity',
+                    intensity: item.intensity || (item.value > 2 ? 'High' : 'Low')
+                })
+            });
+            if (logRes.ok) {
+                savedActivities.push(await logRes.json());
+            }
+        }
+
+        // Replace the "Pending" item in the snapshot
+        if (carbonSnapshot && carbonSnapshot.activities) {
+            carbonSnapshot.activities = carbonSnapshot.activities.filter(a => a.id !== tempId && a._id !== tempId);
+            carbonSnapshot.activities = [...savedActivities, ...carbonSnapshot.activities];
+            
+            // Re-calc metrics and re-mount
+            await refreshData(); 
+        }
+
     } catch (err) {
-        alert(err.message || "Failed to analyze image.");
-    } finally {
-        if (loadingOverlay.parentElement) loadingOverlay.remove();
+        console.error("Background scan failed:", err);
+        if (carbonSnapshot && carbonSnapshot.activities) {
+            const act = carbonSnapshot.activities.find(a => a.id === tempId || a._id === tempId);
+            if (act) {
+                act.status = 'error';
+                act.label = 'Scan Failed';
+                mountActivityFeedFromSnapshot();
+            }
+        }
     }
 };
 
@@ -952,7 +1005,11 @@ async function deleteActivityOnServer(id) {
 }
 
 function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
-    const enterClass = opts.enterAnimation ? ' activity-feed-row-enter' : '';
+    const isProcessing = act.status === 'processing';
+    const isError = act.status === 'error';
+    const rowClass = isProcessing ? ' activity-feed-row-processing' : (isError ? ' activity-feed-row-error' : '');
+    const enterClass = (opts.enterAnimation ? ' activity-feed-row-enter' : '') + rowClass;
+    
     const id = act._id ?? act.id;
     const ic = safeFeedIcon(act.icon);
     const intenColor =
@@ -960,9 +1017,18 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
     const val = Number(act.value);
     const img = receiptPreviewForActivity(act, receiptPreviews);
     const timeStr = formatActivityFeedTime(act.timestamp);
-    const thumb = img
+    
+    let thumb = img
         ? `<img class="activity-feed-thumb" src="${escapeAttr(img)}" alt="" />`
         : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
+    
+    if (isProcessing) {
+        thumb = `<div class="activity-feed-thumb-placeholder"><div class="spinner"></div></div>`;
+    }
+
+    const valStr = isProcessing ? '...' : (isError ? 'FAIL' : `+${val.toFixed(1)}`);
+    const metaStr = isProcessing ? 'Analyzing image...' : (isError ? 'Could not analyze' : `CO2e · ${act.intensity}`);
+
     const valAttr = Number.isFinite(val) ? val : 0;
     return `
             <div class="activity-swipe-wrap${enterClass}" data-activity-id="${String(id)}" data-activity-value="${valAttr}">
@@ -980,8 +1046,8 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
                     <span class="activity-feed-time">${escapeHtml(timeStr)}</span>
                   </div>
                   <div class="activity-feed-value-row">
-                    <span class="activity-feed-value" style="color:${intenColor};">+${Number.isFinite(val) ? val.toFixed(1) : '0.0'} kg</span>
-                    <span class="activity-feed-meta">CO2e · ${escapeHtml(act.intensity)}</span>
+                    <span class="activity-feed-value" style="color:${intenColor};">${valStr} kg</span>
+                    <span class="activity-feed-meta">${metaStr}</span>
                   </div>
                 </div>
               </div>
