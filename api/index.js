@@ -6,6 +6,7 @@ import { auth } from 'express-oauth2-jwt-bearer';
 import Activity from '../server/models/Activity.js';
 import UserMetric from '../server/models/UserMetric.js';
 import Receipt from '../server/models/Receipt.js';
+import UserCar from '../server/models/UserCar.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 function isValidObjectId(id) {
@@ -93,12 +94,146 @@ app.delete('/api/activities/:id', checkJwt, async (req, res) => {
   }
 });
 
+// --- User cars (garage) ---
+app.get('/api/cars', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  try {
+    const cars = await UserCar.find({ userId }).sort({ createdAt: -1 }).lean();
+    res.json(cars);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/cars', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  const { label, make, model, year, estimatedKgPerTrip } = req.body;
+  try {
+    const l = String(label || '').trim();
+    if (!l) return res.status(400).json({ error: 'label is required' });
+    const kg = Math.max(0, Math.min(500, Number(estimatedKgPerTrip) || 2.4));
+    const car = await UserCar.create({
+      userId,
+      label: l.slice(0, 120),
+      make: String(make || '').trim().slice(0, 80),
+      model: String(model || '').trim().slice(0, 80),
+      year: year != null && year !== '' ? Math.floor(Number(year)) : undefined,
+      estimatedKgPerTrip: kg
+    });
+    res.status(201).json(car);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/cars/:id', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  const { id } = req.params;
+  if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid car id' });
+  try {
+    const car = await UserCar.findOneAndDelete({ _id: id, userId });
+    if (!car) return res.status(404).json({ error: 'Car not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/cars/match-image', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  const { image } = req.body;
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+      return res.status(503).json({ error: 'Car image matching is not configured (missing GOOGLE_API_KEY).' });
+    }
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ error: 'image (base64 data URL) is required' });
+    }
+    const cars = await UserCar.find({ userId }).sort({ createdAt: -1 }).lean();
+    const garage = cars.map((c) => ({
+      id: String(c._id),
+      label: c.label,
+      make: c.make || '',
+      model: c.model || ''
+    }));
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const base64Data = image.includes(',') ? image.split(',')[1] : image;
+    const mimeType = image.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+
+    const prompt = `You are identifying a vehicle from a photo for a carbon-tracking app.
+The user may already have these cars in their garage (JSON array). Pick the single best match if the photo clearly shows the same vehicle type/brand/model family as one entry; otherwise treat as a new vehicle.
+Garage: ${JSON.stringify(garage)}
+
+Return ONLY valid JSON (no markdown):
+{
+  "matchType": "existing" or "new",
+  "matchedCarId": "<one of the garage id strings or null if new>",
+  "suggested": {
+    "label": "short display name e.g. Blue Civic",
+    "make": "",
+    "model": "",
+    "estimatedKgPerTrip": 2.4
+  },
+  "confidence": 0.85,
+  "shortReason": "one sentence"
+}
+Rules: estimatedKgPerTrip is approximate kg CO2 for a typical short commute trip (3–15 mi) for that vehicle; use 1.2–2.0 for small EV/hybrid, 2–4 for average sedan, 4–8 for SUV/truck.`;
+
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: base64Data, mimeType } }
+    ]);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    const matchType = parsed.matchType === 'existing' ? 'existing' : 'new';
+    let matchedCarId = parsed.matchedCarId != null ? String(parsed.matchedCarId) : null;
+    if (matchType === 'existing' && matchedCarId && !garage.some((g) => g.id === matchedCarId)) {
+      matchedCarId = null;
+    }
+    const sug = parsed.suggested || {};
+    const suggested = {
+      label: String(sug.label || 'My vehicle').trim().slice(0, 120) || 'My vehicle',
+      make: String(sug.make || '').trim().slice(0, 80),
+      model: String(sug.model || '').trim().slice(0, 80),
+      estimatedKgPerTrip: Math.max(0.1, Math.min(50, Number(sug.estimatedKgPerTrip) || 2.4))
+    };
+    res.json({
+      matchType: matchedCarId ? 'existing' : 'new',
+      matchedCarId,
+      suggested,
+      confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0)),
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
+    });
+  } catch (err) {
+    console.error('Car match error:', err);
+    res.status(500).json({ error: err.message || 'Could not analyze image' });
+  }
+});
+
 // POST Log Activity (Protected)
 app.post('/api/log', checkJwt, async (req, res) => {
   const userId = req.auth.payload.sub;
-  const { label, value, icon, intensity } = req.body;
+  const { label, value, icon, intensity, carId, temporaryCar } = req.body;
   try {
-    const newActivity = await Activity.create({ userId, label, value, icon, intensity });
+    let carObjectId = null;
+    const tempFlag = Boolean(temporaryCar);
+    if (carId && isValidObjectId(String(carId))) {
+      const owned = await UserCar.findOne({ _id: carId, userId }).select('_id').lean();
+      if (owned) carObjectId = owned._id;
+    }
+    if (tempFlag) carObjectId = null;
+
+    const newActivity = await Activity.create({
+      userId,
+      label,
+      value,
+      icon,
+      intensity,
+      carId: carObjectId,
+      temporaryCar: tempFlag
+    });
     
     // Update Metrics
     await UserMetric.findOneAndUpdate(

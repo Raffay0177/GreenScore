@@ -16,6 +16,8 @@ const activitySchema = new mongoose.Schema({
     default: 'manual'
   },
   receiptId: { type: mongoose.Schema.Types.ObjectId, ref: 'Receipt', default: null },
+  carId: { type: mongoose.Schema.Types.ObjectId, ref: 'UserCar', default: null },
+  temporaryCar: { type: Boolean, default: false },
   timestamp: { type: Date, default: Date.now }
 });
 

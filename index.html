@@ -212,7 +212,7 @@
             
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
                 <div class="card mini-card" style="border: 2px solid var(--primary-green); margin:0;" onclick="logQuick('Food')"><i data-lucide="utensils"></i> Food</div>
-                <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="logQuick('Transport')"><i data-lucide="car"></i> Car</div>
+                <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="openCarLogModal()"><i data-lucide="car"></i> Car</div>
                 <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="logQuick('Shopping')"><i data-lucide="shopping-bag"></i> Order</div>
                 <!-- Feature 05: Receipt Scanner -->
                 <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0; background: #e3f2fd;" onclick="document.getElementById('receipt-upload').click()"><i data-lucide="camera"></i> Scan</div>
@@ -220,6 +220,113 @@
             <input type="file" id="receipt-upload" accept="image/*" capture="environment" style="display:none;">
             
             <button onclick="toggleLogger()" style="width:100%; border:none; background: #000; color:#fff; padding:16px; border-radius:100px; font-weight:700;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Car trip logger (from Car in Log Activity) -->
+    <div id="car-log-modal" class="car-log-modal" style="display:none;" aria-hidden="true">
+        <div class="car-log-sheet card">
+            <div class="car-log-handle" aria-hidden="true"></div>
+            <div class="car-log-topbar">
+                <button type="button" class="car-log-back" id="car-log-back" style="display:none;">Back</button>
+                <h2 class="clash car-log-title" id="car-log-title">Log a trip</h2>
+            </div>
+            <p class="car-log-sub" id="car-log-sub">Select a vehicle, add one, then log your trip.</p>
+
+            <div id="car-view-main" class="car-log-view">
+                <div class="car-log-grid-2x2">
+                    <button type="button" class="car-tile" data-car-nav="select">
+                        <i data-lucide="list-checks"></i>
+                        <span>Select</span>
+                        <small>Garage</small>
+                    </button>
+                    <button type="button" class="car-tile car-tile-accent" data-car-nav="add">
+                        <i data-lucide="plus-circle"></i>
+                        <span>Add</span>
+                        <small>Scan or manual</small>
+                    </button>
+                    <button type="button" class="car-tile" data-car-nav="destination">
+                        <i data-lucide="map-pin"></i>
+                        <span>Destination</span>
+                        <small>Coming soon</small>
+                    </button>
+                    <button type="button" class="car-tile car-tile-primary" data-car-nav="log">
+                        <i data-lucide="check-circle"></i>
+                        <span>Log trip</span>
+                        <small>Uses selected car</small>
+                    </button>
+                </div>
+                <div id="car-selected-pill" class="car-selected-pill">No vehicle selected</div>
+            </div>
+
+            <div id="car-view-select" class="car-log-view" hidden>
+                <p class="car-hint">Swipe left on a row to remove it from your garage.</p>
+                <div id="car-garage-list" class="car-garage-list"></div>
+            </div>
+
+            <div id="car-view-add" class="car-log-view" hidden>
+                <p class="car-hint">Choose how to add a vehicle.</p>
+                <div class="car-add-split">
+                    <button type="button" class="car-choice-btn" id="car-btn-scan">
+                        <i data-lucide="camera"></i>
+                        <span>Scan</span>
+                        <small>Photo → match your garage</small>
+                    </button>
+                    <button type="button" class="car-choice-btn" id="car-btn-manual">
+                        <i data-lucide="keyboard"></i>
+                        <span>Manual</span>
+                        <small>Type make &amp; model</small>
+                    </button>
+                </div>
+            </div>
+
+            <div id="car-view-manual" class="car-log-view" hidden>
+                <label class="car-field-label">Display name</label>
+                <input type="text" id="car-manual-label" class="car-field-input" placeholder="e.g. Work SUV" maxlength="120" />
+                <label class="car-field-label">Make</label>
+                <input type="text" id="car-manual-make" class="car-field-input" placeholder="Toyota" maxlength="80" />
+                <label class="car-field-label">Model</label>
+                <input type="text" id="car-manual-model" class="car-field-input" placeholder="RAV4" maxlength="80" />
+                <label class="car-field-label">Est. kg CO₂ / trip</label>
+                <input type="number" id="car-manual-kg" class="car-field-input" min="0.1" max="50" step="0.1" value="2.4" />
+                <button type="button" class="car-btn-solid" id="car-manual-continue">Continue</button>
+            </div>
+
+            <div id="car-view-scan-busy" class="car-log-view" hidden>
+                <div class="car-scan-busy-inner">
+                    <div class="spinner" style="width:44px;height:44px;border:3px solid var(--border-light);border-top-color:var(--primary-green);border-radius:50%;margin:0 auto 16px;"></div>
+                    <p class="clash">Matching your photo…</p>
+                    <p class="car-hint">Finding the closest vehicle in your garage.</p>
+                </div>
+            </div>
+
+            <div id="car-view-review" class="car-log-view" hidden>
+                <div id="car-review-card" class="car-review-card"></div>
+                <div id="car-review-actions-fine" class="car-review-actions">
+                    <button type="button" class="car-btn-outline" id="car-review-cancel">Not quite</button>
+                    <button type="button" class="car-btn-solid" id="car-review-fine">Fine</button>
+                </div>
+                <div id="car-review-actions-save" class="car-review-actions" style="display:none;">
+                    <p class="car-hint car-hint-tight">Add this vehicle to your garage?</p>
+                    <div class="car-save-split">
+                        <button type="button" class="car-btn-solid car-btn-permanent" id="car-save-permanent">Permanent</button>
+                        <button type="button" class="car-btn-outline car-btn-temporary" id="car-save-temporary">Temporary</button>
+                    </div>
+                    <p class="car-micro-hint">Permanent saves for next time. Temporary uses it only for this trip’s emissions.</p>
+                </div>
+            </div>
+
+            <div id="car-view-destination" class="car-log-view" hidden>
+                <div class="car-placeholder-card">
+                    <i data-lucide="map-pin" width="40" height="40"></i>
+                    <p class="clash">Destination</p>
+                    <p class="car-hint">Route planning and distance-based CO₂ will show up here later.</p>
+                </div>
+            </div>
+
+            <input type="file" id="car-scan-input" accept="image/*" capture="environment" style="display:none;" />
+
+            <button type="button" class="car-log-close-bar" onclick="closeCarLogModal()">Close</button>
         </div>
     </div>
 

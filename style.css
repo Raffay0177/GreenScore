@@ -492,5 +492,348 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   font-weight: 500;
 }
 
+/* Car log modal */
+.car-log-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.car-log-sheet {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 28px 28px 0 0;
+  margin: 0;
+  padding: 12px 18px 28px;
+  max-height: min(92vh, 720px);
+  overflow-y: auto;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
+}
+
+.car-log-handle {
+  width: 40px;
+  height: 4px;
+  background: #ddd;
+  margin: 0 auto 12px;
+  border-radius: 10px;
+}
+
+.car-log-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.car-log-back {
+  border: none;
+  background: var(--bg-main);
+  color: var(--accent-blue);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.car-log-title {
+  font-size: 20px;
+  margin: 0;
+  flex: 1;
+}
+
+.car-log-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+
+.car-log-view[hidden] {
+  display: none !important;
+}
+
+.car-log-grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.car-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 100px;
+  padding: 14px 10px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: center;
+  font-family: inherit;
+  color: var(--text-main);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.car-tile:active {
+  transform: scale(0.98);
+}
+
+.car-tile i {
+  color: var(--accent-blue);
+  width: 28px;
+  height: 28px;
+}
+
+.car-tile-accent i {
+  color: var(--primary-green);
+}
+
+.car-tile-primary i {
+  color: var(--primary-green);
+}
+
+.car-tile span {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.car-tile small {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.car-selected-pill {
+  text-align: center;
+  font-size: 13px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-main);
+  color: var(--text-dim);
+  border: 1px dashed var(--border-light);
+}
+
+.car-selected-pill.has-car {
+  color: var(--text-main);
+  border-style: solid;
+  border-color: rgba(46, 204, 113, 0.35);
+  background: rgba(46, 204, 113, 0.08);
+}
+
+.car-hint {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.car-hint-tight {
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.car-garage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.car-garage-list .activity-swipe-wrap {
+  margin-bottom: 10px;
+}
+
+.car-garage-empty {
+  text-align: center;
+  padding: 28px 16px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.car-add-split {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.car-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 18px 16px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.car-choice-btn i {
+  color: var(--primary-green);
+  margin-bottom: 4px;
+}
+
+.car-choice-btn span {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.car-choice-btn small {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.car-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin: 10px 0 6px;
+}
+
+.car-field-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  font-size: 15px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.car-btn-solid {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  border: none;
+  border-radius: 100px;
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.car-btn-outline {
+  flex: 1;
+  padding: 14px;
+  border-radius: 100px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.car-btn-permanent {
+  background: var(--primary-green);
+  margin-top: 0;
+}
+
+.car-btn-temporary {
+  border-color: var(--text-dim);
+}
+
+.car-scan-busy-inner {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.car-review-card {
+  padding: 16px;
+  border-radius: var(--border-radius);
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.car-review-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#car-review-actions-fine {
+  flex-direction: row;
+  gap: 10px;
+}
+
+#car-review-actions-fine .car-btn-outline,
+#car-review-actions-fine .car-btn-solid {
+  flex: 1;
+  margin-top: 0;
+}
+
+.car-review-actions .car-btn-outline,
+.car-review-actions .car-btn-solid {
+  margin-top: 0;
+}
+
+.car-save-split {
+  display: flex;
+  gap: 10px;
+}
+
+.car-save-split .car-btn-solid,
+.car-save-split .car-btn-outline {
+  flex: 1;
+}
+
+.car-micro-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  margin: 12px 0 0;
+  line-height: 1.35;
+}
+
+.car-placeholder-card {
+  text-align: center;
+  padding: 36px 20px;
+  border-radius: var(--border-radius);
+  background: var(--bg-main);
+  border: 1px dashed var(--border-light);
+  color: var(--text-dim);
+}
+
+.car-placeholder-card .clash {
+  margin: 12px 0 8px;
+  color: var(--text-main);
+}
+
+.car-log-close-bar {
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.garage-row-selected .activity-swipe-panel {
+  box-shadow: 0 0 0 2px var(--primary-green);
+}
+
 /* Existing Components Overrides */
 .card.main-chart { padding: 0; overflow: hidden; } /* Remove padding for carousel */

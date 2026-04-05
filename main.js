@@ -390,6 +390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     initDatePicker();
+    initCarLogUI();
     if (window.lucide) lucide.createIcons();
 
     const swipeContainer = document.getElementById('dash-swipe');
@@ -1001,6 +1002,648 @@ function initActivitySwipeFeed(container) {
             if (dragging && e.pointerId === activePointerId) finishDrag(e);
         });
     });
+}
+
+// --- Car trip logger (garage, scan/manual, log activity) ---
+let carLogGarageCache = [];
+let carViewStack = ['main'];
+const carLogState = {
+    selectedCarId: null,
+    tempCar: null,
+    pendingMatch: null
+};
+
+const CAR_VIEW_IDS = {
+    main: 'car-view-main',
+    select: 'car-view-select',
+    add: 'car-view-add',
+    manual: 'car-view-manual',
+    scanBusy: 'car-view-scan-busy',
+    review: 'car-view-review',
+    destination: 'car-view-destination'
+};
+
+function carSyncViews() {
+    const key = carViewStack[carViewStack.length - 1];
+    for (const [k, id] of Object.entries(CAR_VIEW_IDS)) {
+        const el = document.getElementById(id);
+        if (el) el.hidden = k !== key;
+    }
+    const back = document.getElementById('car-log-back');
+    if (back) back.style.display = key === 'main' ? 'none' : 'inline-block';
+    if (window.lucide) lucide.createIcons();
+}
+
+function carNavPush(key) {
+    carViewStack.push(key);
+    carSyncViews();
+}
+
+function carNavPop() {
+    carViewStack.pop();
+    if (carViewStack.length === 0) carViewStack.push('main');
+    carSyncViews();
+}
+
+function carNavReset() {
+    carViewStack = ['main'];
+    resetCarReviewUI();
+    carSyncViews();
+}
+
+function resetCarReviewUI() {
+    const fine = document.getElementById('car-review-actions-fine');
+    const save = document.getElementById('car-review-actions-save');
+    const card = document.getElementById('car-review-card');
+    if (fine) fine.style.display = '';
+    if (save) save.style.display = 'none';
+    if (card) card.innerHTML = '';
+}
+
+function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(new Error('Could not read file'));
+        r.readAsDataURL(file);
+    });
+}
+
+async function deleteCarOnServer(id) {
+    const token = await auth0Client.getTokenSilently();
+    const res = await fetch(`/api/cars/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not delete vehicle');
+    }
+}
+
+function updateCarSelectedPill() {
+    const el = document.getElementById('car-selected-pill');
+    if (!el) return;
+    if (carLogState.tempCar) {
+        el.textContent = `Temporary: ${carLogState.tempCar.label} (~${Number(carLogState.tempCar.estimatedKgPerTrip).toFixed(1)} kg/trip)`;
+        el.classList.add('has-car');
+        return;
+    }
+    if (carLogState.selectedCarId) {
+        const c = carLogGarageCache.find((x) => String(x._id) === String(carLogState.selectedCarId));
+        el.textContent = c
+            ? `${c.label} (~${Number(c.estimatedKgPerTrip).toFixed(1)} kg/trip)`
+            : 'Vehicle selected';
+        el.classList.add('has-car');
+        return;
+    }
+    el.textContent = 'No vehicle selected';
+    el.classList.remove('has-car');
+}
+
+function selectGarageCar(id, container) {
+    carLogState.selectedCarId = id;
+    carLogState.tempCar = null;
+    if (container) {
+        container.querySelectorAll('.garage-row-selected').forEach((n) => n.classList.remove('garage-row-selected'));
+        const row = container.querySelector(`[data-car-id="${CSS.escape(String(id))}"]`);
+        if (row) row.classList.add('garage-row-selected');
+    }
+    updateCarSelectedPill();
+}
+
+function buildGarageRowHtml(car) {
+    const id = String(car._id);
+    const label = escapeHtml(car.label);
+    const meta = escapeHtml([car.make, car.model].filter(Boolean).join(' ') || 'Saved vehicle');
+    const kg = Number(car.estimatedKgPerTrip) || 2.4;
+    return `
+            <div class="activity-swipe-wrap car-garage-row" data-car-id="${id}" data-car-kg="${kg}">
+              <div class="activity-swipe-actions">
+                <div class="activity-swipe-delete-visual" aria-hidden="true">
+                  <i data-lucide="trash-2" width="22" height="22" stroke-width="2"></i>
+                  <span class="activity-swipe-delete-label">Delete</span>
+                </div>
+              </div>
+              <div class="activity-swipe-panel">
+                <div class="activity-feed-thumb-placeholder"><i data-lucide="car" width="24" height="24"></i></div>
+                <div class="activity-feed-body">
+                  <div class="activity-feed-title-row">
+                    <span class="activity-feed-title clash">${label}</span>
+                  </div>
+                  <div class="activity-feed-value-row">
+                    <span class="activity-feed-meta">${meta}</span>
+                    <span class="activity-feed-value" style="color:var(--accent-blue);">~${kg.toFixed(1)} kg</span>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+}
+
+function renderGarageList() {
+    const list = document.getElementById('car-garage-list');
+    if (!list) return;
+    if (!carLogGarageCache.length) {
+        list.innerHTML = '<div class="car-garage-empty">No vehicles yet. Use Add → Scan or Manual.</div>';
+        return;
+    }
+    list.innerHTML = carLogGarageCache.map((c) => buildGarageRowHtml(c)).join('');
+    if (window.lucide) lucide.createIcons();
+    initCarGarageSwipe(list);
+    if (carLogState.selectedCarId) {
+        selectGarageCar(carLogState.selectedCarId, list);
+    }
+}
+
+async function fetchGarageCars() {
+    const token = await auth0Client.getTokenSilently();
+    const res = await fetch('/api/cars', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Could not load garage');
+    carLogGarageCache = await res.json();
+}
+
+function renderCarReviewForPending(showFine) {
+    const p = carLogState.pendingMatch;
+    const card = document.getElementById('car-review-card');
+    const fine = document.getElementById('car-review-actions-fine');
+    const save = document.getElementById('car-review-actions-save');
+    if (!p || !card || !fine || !save) return;
+    const s = p.suggested;
+    let html = '';
+    if (p.matchedCarId) {
+        html += `<p class="clash" style="margin:0 0 8px;">Matched your garage</p>`;
+        html += `<p>Linked to <strong>${escapeHtml(s.label)}</strong>.</p>`;
+    } else {
+        html += `<p class="clash" style="margin:0 0 8px;">Suggested vehicle</p>`;
+        html += `<p><strong>${escapeHtml(s.label)}</strong></p>`;
+        const mm = [s.make, s.model].filter(Boolean).join(' ');
+        if (mm) html += `<p>${escapeHtml(mm)}</p>`;
+    }
+    html += `<p>Est. <strong>${Number(s.estimatedKgPerTrip).toFixed(1)} kg</strong> CO₂e per typical trip.</p>`;
+    if (p.shortReason && !p.fromManual) {
+        html += `<p style="color:var(--text-dim);font-size:13px;">${escapeHtml(p.shortReason)}</p>`;
+    }
+    if (p.confidence != null && !p.fromManual) {
+        html += `<p style="font-size:12px;color:var(--text-dim);">Confidence: ${Math.round(Number(p.confidence) * 100)}%</p>`;
+    }
+    card.innerHTML = html;
+    if (showFine) {
+        fine.style.display = 'flex';
+        save.style.display = 'none';
+    } else {
+        fine.style.display = 'none';
+        save.style.display = 'flex';
+    }
+}
+
+function initCarGarageSwipe(container) {
+    const wraps = container.querySelectorAll('.car-garage-row');
+    wraps.forEach((wrap) => {
+        if (wrap.dataset.garageSwipeBound === '1') return;
+        wrap.dataset.garageSwipeBound = '1';
+
+        const panel = wrap.querySelector('.activity-swipe-panel');
+        if (!panel) return;
+
+        let dragging = false;
+        let activePointerId = null;
+        let startClientX = 0;
+        let startClientY = 0;
+        let startOffset = 0;
+        let commitInFlight = false;
+
+        const maxSwipe = () => wrap._maxSwipe || getMaxSwipeDist(wrap);
+
+        const finishDrag = (e) => {
+            if (!dragging) return;
+            if (e && activePointerId !== null && e.pointerId !== activePointerId) return;
+            const ev = e;
+            dragging = false;
+            const pid = activePointerId;
+            activePointerId = null;
+            if (pid != null) {
+                try {
+                    panel.releasePointerCapture(pid);
+                } catch (_) {
+                    /* ignore */
+                }
+            }
+            wrap.classList.remove('activity-swipe-dragging');
+            const m = maxSwipe();
+            const o = wrap._swipeOffset ?? 0;
+            const ratio = m > 0 ? Math.abs(o) / m : 0;
+
+            const cx = ev?.clientX ?? startClientX;
+            const cy = ev?.clientY ?? startClientY;
+            const tapDist = Math.hypot(cx - startClientX, cy - startClientY);
+
+            if (ratio < SWIPE_DELETE_THRESHOLD && tapDist < 14 && Math.abs(o) < 10) {
+                selectGarageCar(wrap.dataset.carId, container);
+                applyActivityPanelTransform(wrap, panel, 0, { animated: true });
+                return;
+            }
+
+            if (ratio >= SWIPE_DELETE_THRESHOLD) {
+                applyActivityPanelTransform(wrap, panel, -maxSwipe(), {
+                    animated: true,
+                    onDone: () => void runGarageDelete()
+                });
+                return;
+            }
+            applyActivityPanelTransform(wrap, panel, 0, { animated: true });
+        };
+
+        const runGarageDelete = () => {
+            if (commitInFlight) return;
+            commitInFlight = true;
+            const id = wrap.dataset.carId;
+
+            wrap.classList.remove('activity-swipe-dragging');
+            wrap.classList.add('activity-feed-row-removing');
+            const h = wrap.offsetHeight;
+            wrap.style.overflow = 'hidden';
+            const collapseDur = `${ACTIVITY_DELETE_COLLAPSE_MS / 1000}s`;
+            wrap.style.transition = `max-height ${collapseDur} ${ACTIVITY_DELETE_EASE}, margin-bottom ${collapseDur} ${ACTIVITY_DELETE_EASE}`;
+            wrap.style.maxHeight = `${h}px`;
+
+            const pnl = wrap.querySelector('.activity-swipe-panel');
+            if (pnl) {
+                const ox = wrap._swipeOffset ?? 0;
+                pnl.style.transition = 'none';
+                pnl.style.transformOrigin = 'center center';
+                pnl.style.transform = `translate3d(${ox}px,0,0) scale(1)`;
+                pnl.style.opacity = '1';
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const pd = `${Math.min(380, ACTIVITY_DELETE_COLLAPSE_MS - 20) / 1000}s`;
+                        pnl.style.transition = `opacity ${pd} ${ACTIVITY_DELETE_EASE}, transform ${pd} ${ACTIVITY_DELETE_EASE}`;
+                        pnl.style.transform = 'translate3d(0,0,0) scale(0.96)';
+                        pnl.style.opacity = '0';
+                    });
+                });
+            }
+
+            let finished = false;
+            const complete = () => {
+                if (finished) return;
+                finished = true;
+                wrap.remove();
+                carLogGarageCache = carLogGarageCache.filter((c) => String(c._id) !== String(id));
+                if (String(carLogState.selectedCarId) === String(id)) {
+                    carLogState.selectedCarId = null;
+                    updateCarSelectedPill();
+                }
+                commitInFlight = false;
+                deleteCarOnServer(id).catch((err) => {
+                    alert(err.message || 'Could not delete vehicle');
+                    fetchGarageCars()
+                        .then(() => renderGarageList())
+                        .catch(() => {});
+                });
+            };
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    wrap.style.maxHeight = '0';
+                    wrap.style.marginBottom = '0';
+                });
+            });
+
+            const onEnd = (ev) => {
+                if (ev.propertyName !== 'max-height') return;
+                wrap.removeEventListener('transitionend', onEnd);
+                complete();
+            };
+            wrap.addEventListener('transitionend', onEnd);
+            window.setTimeout(() => {
+                wrap.removeEventListener('transitionend', onEnd);
+                complete();
+            }, ACTIVITY_DELETE_COLLAPSE_MS + 120);
+        };
+
+        wrap._swipeOffset = 0;
+        wrap._maxSwipe = getMaxSwipeDist(wrap);
+        wrap.style.setProperty('--swipe-progress', '0');
+        wrap.style.setProperty('--swipe-linear', '0');
+        applyActivityPanelTransform(wrap, panel, 0, { animated: false });
+
+        panel.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (wrap.classList.contains('activity-feed-row-removing')) return;
+            wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
+            wrap._maxSwipe = getMaxSwipeDist(wrap);
+            wrap.classList.add('activity-swipe-dragging');
+            dragging = true;
+            activePointerId = e.pointerId;
+            startClientX = e.clientX;
+            startClientY = e.clientY;
+            startOffset = wrap._swipeOffset ?? 0;
+            try {
+                panel.setPointerCapture(e.pointerId);
+            } catch (_) {
+                /* ignore */
+            }
+        });
+
+        panel.addEventListener('pointermove', (e) => {
+            if (!dragging || e.pointerId !== activePointerId) return;
+            const dx = e.clientX - startClientX;
+            const next = startOffset + dx;
+            applyActivityPanelTransform(wrap, panel, next, { animated: false, allowOvershoot: true });
+        });
+
+        panel.addEventListener('pointerup', finishDrag);
+        panel.addEventListener('pointercancel', finishDrag);
+        panel.addEventListener('lostpointercapture', (e) => {
+            if (dragging && e.pointerId === activePointerId) finishDrag(e);
+        });
+    });
+}
+
+window.openCarLogModal = async () => {
+    try {
+        if (!(await auth0Client.isAuthenticated())) {
+            alert('Please log in to manage vehicles.');
+            auth0Client.loginWithRedirect();
+            return;
+        }
+    } catch (_) {
+        alert('Please log in to manage vehicles.');
+        return;
+    }
+    toggleLogger();
+    const modal = document.getElementById('car-log-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    carNavReset();
+    try {
+        await fetchGarageCars();
+    } catch (err) {
+        console.error(err);
+        carLogGarageCache = [];
+    }
+    updateCarSelectedPill();
+    if (window.lucide) lucide.createIcons();
+};
+
+window.closeCarLogModal = () => {
+    const modal = document.getElementById('car-log-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    carNavReset();
+    resetCarReviewUI();
+};
+
+function initCarLogUI() {
+    const back = document.getElementById('car-log-back');
+    if (back) back.onclick = () => carNavPop();
+
+    const modal = document.getElementById('car-log-modal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeCarLogModal();
+        });
+        modal.querySelectorAll('[data-car-nav]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const nav = btn.getAttribute('data-car-nav');
+            if (nav === 'select') {
+                try {
+                    await fetchGarageCars();
+                } catch (_) {
+                    carLogGarageCache = [];
+                }
+                renderGarageList();
+                carNavPush('select');
+            } else if (nav === 'add') {
+                carNavPush('add');
+            } else if (nav === 'destination') {
+                carNavPush('destination');
+            } else if (nav === 'log') {
+                await submitCarTripLog();
+            }
+        });
+        });
+    }
+
+    document.getElementById('car-btn-scan')?.addEventListener('click', () => {
+        document.getElementById('car-scan-input')?.click();
+    });
+
+    document.getElementById('car-btn-manual')?.addEventListener('click', () => {
+        document.getElementById('car-manual-label').value = '';
+        document.getElementById('car-manual-make').value = '';
+        document.getElementById('car-manual-model').value = '';
+        document.getElementById('car-manual-kg').value = '2.4';
+        carNavPush('manual');
+    });
+
+    document.getElementById('car-manual-continue')?.addEventListener('click', () => {
+        const label = document.getElementById('car-manual-label').value.trim();
+        if (!label) {
+            alert('Please enter a display name.');
+            return;
+        }
+        const make = document.getElementById('car-manual-make').value.trim();
+        const model = document.getElementById('car-manual-model').value.trim();
+        const kg = Math.max(0.1, Math.min(50, Number(document.getElementById('car-manual-kg').value) || 2.4));
+        carLogState.pendingMatch = {
+            fromManual: true,
+            matchedCarId: null,
+            suggested: { label, make, model, estimatedKgPerTrip: kg }
+        };
+        renderCarReviewForPending(false);
+        carNavPush('review');
+    });
+
+    document.getElementById('car-review-fine')?.addEventListener('click', () => {
+        document.getElementById('car-review-actions-fine').style.display = 'none';
+        document.getElementById('car-review-actions-save').style.display = 'flex';
+    });
+
+    document.getElementById('car-review-cancel')?.addEventListener('click', () => {
+        carLogState.pendingMatch = null;
+        resetCarReviewUI();
+        carNavPop();
+    });
+
+    document.getElementById('car-save-permanent')?.addEventListener('click', () => void saveCarPermanentChoice());
+    document.getElementById('car-save-temporary')?.addEventListener('click', () => saveCarTemporaryChoice());
+
+    document.getElementById('car-scan-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            if (!(await auth0Client.isAuthenticated())) return;
+        } catch (_) {
+            return;
+        }
+        carNavPush('scanBusy');
+        try {
+            const dataUrl = await compressImage(file);
+            const token = await auth0Client.getTokenSilently();
+            const res = await fetch('/api/cars/match-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ image: dataUrl })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Could not analyze photo');
+            carLogState.pendingMatch = {
+                fromManual: false,
+                matchedCarId: data.matchedCarId || null,
+                matchType: data.matchType,
+                suggested: data.suggested,
+                confidence: data.confidence,
+                shortReason: data.shortReason
+            };
+            carViewStack.pop();
+            carNavPush('review');
+            renderCarReviewForPending(true);
+        } catch (err) {
+            alert(err.message || 'Scan failed');
+            carViewStack.pop();
+            carSyncViews();
+        }
+    });
+}
+
+async function saveCarPermanentChoice() {
+    const p = carLogState.pendingMatch;
+    if (!p) return;
+    try {
+        if (p.matchedCarId) {
+            carLogState.selectedCarId = p.matchedCarId;
+            carLogState.tempCar = null;
+            await fetchGarageCars();
+            const list = document.getElementById('car-garage-list');
+            if (list) {
+                renderGarageList();
+            }
+            selectGarageCar(p.matchedCarId, list);
+        } else {
+            const s = p.suggested;
+            const token = await auth0Client.getTokenSilently();
+            const res = await fetch('/api/cars', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    label: s.label,
+                    make: s.make,
+                    model: s.model,
+                    estimatedKgPerTrip: s.estimatedKgPerTrip
+                })
+            });
+            const car = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(car.error || 'Could not save vehicle');
+            await fetchGarageCars();
+            const list = document.getElementById('car-garage-list');
+            if (list) renderGarageList();
+            carLogState.selectedCarId = String(car._id);
+            carLogState.tempCar = null;
+            if (list) selectGarageCar(car._id, list);
+        }
+        carLogState.pendingMatch = null;
+        resetCarReviewUI();
+        carNavReset();
+        updateCarSelectedPill();
+        if (window.lucide) lucide.createIcons();
+    } catch (err) {
+        alert(err.message || 'Save failed');
+    }
+}
+
+function saveCarTemporaryChoice() {
+    const p = carLogState.pendingMatch;
+    if (!p) return;
+    carLogState.selectedCarId = null;
+    const s = p.suggested;
+    if (p.matchedCarId) {
+        const c = carLogGarageCache.find((x) => String(x._id) === String(p.matchedCarId));
+        carLogState.tempCar = {
+            label: c?.label || s.label,
+            estimatedKgPerTrip: Number(c?.estimatedKgPerTrip ?? s.estimatedKgPerTrip) || 2.4
+        };
+    } else {
+        carLogState.tempCar = {
+            label: s.label,
+            estimatedKgPerTrip: Number(s.estimatedKgPerTrip) || 2.4
+        };
+    }
+    carLogState.pendingMatch = null;
+    resetCarReviewUI();
+    carNavReset();
+    updateCarSelectedPill();
+}
+
+async function submitCarTripLog() {
+    try {
+        if (!(await auth0Client.isAuthenticated())) {
+            alert('Please log in.');
+            auth0Client.loginWithRedirect();
+            return;
+        }
+    } catch (_) {
+        return;
+    }
+    let label;
+    let value;
+    let carId = null;
+    let temporaryCar = false;
+    if (carLogState.tempCar) {
+        label = `Trip — ${carLogState.tempCar.label}`;
+        value = carLogState.tempCar.estimatedKgPerTrip;
+        temporaryCar = true;
+    } else if (carLogState.selectedCarId) {
+        const c = carLogGarageCache.find((x) => String(x._id) === String(carLogState.selectedCarId));
+        if (!c) {
+            alert('Select a vehicle from your garage or add one.');
+            return;
+        }
+        label = `Trip — ${c.label}`;
+        value = Number(c.estimatedKgPerTrip) || 2.4;
+        carId = c._id;
+        temporaryCar = false;
+    } else {
+        alert('Select a vehicle (garage or temporary) before logging a trip.');
+        return;
+    }
+    const intensity = value > 4 ? 'High' : value > 2.5 ? 'Medium' : 'Low';
+    try {
+        const token = await auth0Client.getTokenSilently();
+        const res = await fetch('/api/log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                label,
+                value,
+                icon: 'car',
+                intensity,
+                carId: temporaryCar ? null : carId,
+                temporaryCar
+            })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Could not log trip');
+        }
+        closeCarLogModal();
+        refreshData();
+    } catch (err) {
+        alert(err.message || 'Could not log trip');
+    }
 }
 
 function renderData(data) {
