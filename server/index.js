@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { auth } from 'express-oauth2-jwt-bearer';
 import Activity from './models/Activity.js';
 import UserMetric from './models/UserMetric.js';
+import Receipt from './models/Receipt.js';
 
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id;
@@ -39,13 +40,24 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
       metrics = await UserMetric.create({ userId });
     }
 
-    const activities = await Activity.find({ userId }).sort({ timestamp: -1 }).limit(400);
+    const activities = await Activity.find({ userId }).sort({ timestamp: -1 }).limit(400).lean();
+    const receiptIds = [
+      ...new Set(activities.map((a) => a.receiptId).filter(Boolean).map((id) => String(id)))
+    ];
+    const receiptPreviews = {};
+    if (receiptIds.length) {
+      const recs = await Receipt.find({ _id: { $in: receiptIds }, userId })
+        .select('imageBase64')
+        .lean();
+      for (const r of recs) receiptPreviews[String(r._id)] = r.imageBase64;
+    }
 
     res.json({
       dailyGoal: metrics.dailyGoal,
       currentEmissions: metrics.currentEmissions,
       streak: metrics.streak,
       activities,
+      receiptPreviews,
       aiTips: [
         { id: 101, text: "Your recent activities show a high carbon footprint. Try swapping beef for plant-based alternatives." },
         { id: 102, text: "Commuting by public transport could save up to 30% on your daily emissions." }

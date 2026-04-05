@@ -15,6 +15,7 @@ const activitySchema = new mongoose.Schema({
     enum: ['manual', 'receipt'],
     default: 'manual'
   },
+  receiptId: { type: mongoose.Schema.Types.ObjectId, ref: 'Receipt', default: null },
   timestamp: { type: Date, default: Date.now }
 });
 

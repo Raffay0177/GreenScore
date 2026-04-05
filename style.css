@@ -295,8 +295,9 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
     transition: stroke-dashoffset 1s ease-in-out;
 }
 
-/* Activity feed — Cal.ai-style swipe to reveal delete */
+/* Activity feed — Cal.ai-style row + swipe to reveal black Delete column */
 .activity-swipe-wrap {
+  --swipe-progress: 0;
   position: relative;
   overflow: hidden;
   border-radius: var(--border-radius);
@@ -306,31 +307,58 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 .activity-swipe-actions {
   position: absolute;
   inset: 0 0 0 auto;
-  width: 80px;
-  background: linear-gradient(90deg, #ff453a, #ff3b30);
+  width: 88px;
+  background: #000;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   z-index: 0;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  pointer-events: none;
+}
+
+.activity-swipe-wrap.activity-swipe-open .activity-swipe-actions {
+  pointer-events: auto;
 }
 
 .activity-swipe-delete {
-  width: 44px;
-  height: 44px;
+  flex: 1;
+  width: 100%;
+  min-height: 100%;
   border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  background: transparent;
   color: #fff;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  padding: 12px 8px;
+  opacity: var(--swipe-progress, 0);
+  pointer-events: none;
+  transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1), background 0.15s ease;
+}
+
+.activity-swipe-wrap.activity-swipe-dragging .activity-swipe-delete {
+  transition: none;
+}
+
+.activity-swipe-wrap.activity-swipe-open .activity-swipe-delete {
+  pointer-events: auto;
 }
 
 .activity-swipe-delete:active {
-  transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.activity-swipe-delete-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  line-height: 1;
 }
 
 .activity-swipe-panel {
@@ -338,8 +366,9 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 14px;
+  padding: 12px 14px;
+  min-height: 80px;
   margin: 0;
   background: var(--bg-card);
   border-radius: var(--border-radius);
@@ -353,6 +382,83 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 
 .activity-swipe-panel:active {
   cursor: grabbing;
+}
+
+.activity-feed-thumb-wrap {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+}
+
+.activity-feed-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  display: block;
+  background: #eee;
+}
+
+.activity-feed-thumb-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.activity-feed-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.activity-feed-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.activity-feed-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-feed-time {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.activity-feed-value-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.activity-feed-value {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.activity-feed-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
 }
 
 /* Existing Components Overrides */
