@@ -882,5 +882,238 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   box-shadow: 0 0 0 2px var(--primary-green);
 }
 
+/* Destination (Google Maps inside car log) */
+.dest-map-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2140;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.dest-map-shell {
+  position: relative;
+  height: 168px;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-main);
+}
+
+.dest-map-shell.dest-map-shell--expanded {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 72px;
+  bottom: 100px;
+  height: auto;
+  z-index: 2150;
+  margin: 0;
+  border-radius: 20px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+}
+
+.dest-map-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 140px;
+}
+
+.dest-expand-toggle {
+  position: absolute;
+  z-index: 2;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.dest-map-caption {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 14px;
+  line-height: 1.35;
+}
+
+.dest-status {
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  line-height: 1.35;
+}
+
+.dest-status[data-kind='error'] {
+  background: rgba(231, 76, 60, 0.1);
+  color: #c0392b;
+}
+
+.dest-status[data-kind='warn'] {
+  background: rgba(243, 156, 18, 0.12);
+  color: #d35400;
+}
+
+.dest-status[data-kind='info'] {
+  background: var(--bg-main);
+  color: var(--text-dim);
+}
+
+.dest-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 14px 0 8px;
+}
+
+.dest-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dest-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-main);
+}
+
+.dest-chip-btn--secondary {
+  background: var(--bg-main);
+}
+
+.dest-inline-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+
+.dest-inline-row .car-field-input {
+  flex: 1;
+  margin: 0;
+}
+
+.dest-inline-btn {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-main);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dest-inline-btn--solid {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.dest-start-summary {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.dest-start-summary--ok {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.dest-hint-tight {
+  margin-top: -4px;
+  margin-bottom: 10px;
+}
+
+.dest-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.dest-result-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.dest-result-row--active {
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.35);
+}
+
+.dest-result-rank {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--bg-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.dest-result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dest-result-name {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.dest-result-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+#dest-no-key-msg code {
+  font-size: 11px;
+  word-break: break-all;
+}
+
 /* Existing Components Overrides */
 .card.main-chart { padding: 0; overflow: hidden; } /* Remove padding for carousel */

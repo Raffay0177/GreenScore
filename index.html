@@ -225,6 +225,7 @@
 
     <!-- Car trip logger (from Car in Log Activity) -->
     <div id="car-log-modal" class="car-log-modal" style="display:none;" aria-hidden="true">
+        <div id="dest-map-backdrop" class="dest-map-backdrop" hidden aria-hidden="true"></div>
         <div class="car-log-sheet card">
             <div class="car-log-handle" aria-hidden="true"></div>
             <div class="car-log-topbar">
@@ -324,11 +325,45 @@
             </div>
 
             <div id="car-view-destination" class="car-log-view" hidden>
-                <div class="car-placeholder-card">
-                    <i data-lucide="map-pin" width="40" height="40"></i>
-                    <p class="clash">Destination</p>
-                    <p class="car-hint">Route planning and distance-based CO₂ will show up here later.</p>
+                <p class="car-hint" id="dest-no-key-msg" hidden>
+                    Add <code>VITE_GOOGLE_MAPS_API_KEY</code> in <code>.env</code> and enable Maps JavaScript, Places, and Geocoding APIs.
+                </p>
+                <div id="dest-status" class="dest-status" role="status" hidden></div>
+
+                <div class="dest-map-shell" id="dest-map-shell">
+                    <div id="dest-map-canvas" class="dest-map-canvas"></div>
+                    <button type="button" class="dest-expand-toggle" id="dest-expand-toggle">
+                        <i data-lucide="maximize-2" width="16" height="16"></i>
+                        Expand map
+                    </button>
                 </div>
+                <p class="dest-map-caption">Tap the map to enlarge. Pan and zoom to explore, or set start from map center.</p>
+
+                <p class="dest-section-label">Start</p>
+                <div class="dest-start-actions">
+                    <button type="button" class="dest-chip-btn" id="dest-start-current">
+                        <i data-lucide="crosshair" width="16" height="16"></i>
+                        Current location
+                    </button>
+                    <button type="button" class="dest-chip-btn dest-chip-btn--secondary" id="dest-start-use-center">
+                        <i data-lucide="map-pin" width="16" height="16"></i>
+                        Use map center
+                    </button>
+                </div>
+                <label class="car-field-label">Custom start (address or place)</label>
+                <div class="dest-inline-row">
+                    <input type="text" id="dest-start-input" class="car-field-input" placeholder="123 Main St, City" maxlength="200" />
+                    <button type="button" class="dest-inline-btn" id="dest-start-set-custom">Set</button>
+                </div>
+                <p class="dest-start-summary" id="dest-start-summary">Start: not set — using map center for distance ranking</p>
+
+                <p class="dest-section-label">Destination</p>
+                <p class="car-hint dest-hint-tight">Search a business or chain — results are ranked nearest to farthest from your start.</p>
+                <div class="dest-inline-row dest-inline-row--search">
+                    <input type="text" id="dest-query-input" class="car-field-input" placeholder="e.g. Starbucks, Target, 85001" maxlength="200" />
+                    <button type="button" class="dest-inline-btn dest-inline-btn--solid" id="dest-search-btn">Find</button>
+                </div>
+                <div id="dest-results-list" class="dest-results-list"></div>
             </div>
 
             <input type="file" id="car-scan-input" accept="image/*" capture="environment" style="display:none;" />

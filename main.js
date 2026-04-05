@@ -1,4 +1,5 @@
 import { createAuth0Client } from '@auth0/auth0-spa-js';
+import { initDestinationMaps, prepareDestinationView, onCarLogViewChange } from './destination-maps.js';
 
 // Global state
 let auth0Client = null;
@@ -1033,6 +1034,8 @@ function carSyncViews() {
     const back = document.getElementById('car-log-back');
     if (back) back.hidden = carViewStack.length <= 1;
     if (window.lucide) lucide.createIcons();
+    onCarLogViewChange(key);
+    if (key === 'destination') void prepareDestinationView();
 }
 
 function carNavPush(key) {
@@ -1407,6 +1410,7 @@ window.closeCarLogModal = () => {
 };
 
 function initCarLogUI() {
+    initDestinationMaps();
     const back = document.getElementById('car-log-back');
     if (back) back.onclick = () => carNavPop();
 
