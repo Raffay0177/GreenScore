@@ -1385,12 +1385,12 @@ function initCarGarageSwipe(container) {
 window.openCarLogModal = async () => {
     try {
         if (!(await auth0Client.isAuthenticated())) {
-            alert('Please log in to manage vehicles.');
+            alert('Please log in up to manage vehicles.');
             auth0Client.loginWithRedirect();
             return;
         }
     } catch (_) {
-        alert('Please log in to manage vehicles.');
+        alert('Please log in up to manage vehicles.');
         return;
     }
     toggleLogger();
@@ -1412,33 +1412,6 @@ window.openCarLogModal = async () => {
     }
     updateCarSelectedPill();
     if (window.lucide) lucide.createIcons();
-};
-
-window.openPublicTransportModal = async () => {
-    try {
-        if (!(await auth0Client.isAuthenticated())) {
-            alert('Please log in to log transit trips.');
-            auth0Client.loginWithRedirect();
-            return;
-        }
-    } catch (_) {
-        alert('Please log in to log transit trips.');
-        return;
-    }
-    toggleLogger();
-    carLogState.publicTransportMode = true;
-    const modal = document.getElementById('car-log-modal');
-    if (!modal) return;
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
-    const title = document.getElementById('car-log-title');
-    const sub = document.getElementById('car-log-sub');
-    if (title) title.textContent = 'Log a bus trip';
-    if (sub) sub.textContent = 'Set your start & destination, then log to see bus routes.';
-    carViewStack = ['main'];
-    carSyncViews();
-    // Jump straight to destination
-    carNavPush('destination');
 };
 
 window.closeCarLogModal = (keepDestination = false) => {
@@ -1513,6 +1486,15 @@ function initCarLogUI() {
         document.getElementById('car-manual-make').value = '';
         document.getElementById('car-manual-model').value = '';
         carNavPush('manual');
+    });
+
+    document.getElementById('car-btn-transit')?.addEventListener('click', () => {
+        carLogState.publicTransportMode = true;
+        const title = document.getElementById('car-log-title');
+        const sub = document.getElementById('car-log-sub');
+        if (title) title.textContent = 'Log a bus trip';
+        if (sub) sub.textContent = 'Set your start & destination, then log to see bus routes.';
+        carNavPush('destination');
     });
 
     document.getElementById('car-manual-continue')?.addEventListener('click', async () => {
@@ -1821,11 +1803,18 @@ async function submitCarTripLog() {
         }
 
         // If public transport, redirect to Google Maps with transit directions
-        if (isPublicTransport && destInfo.startLatLng && destInfo.endLatLng) {
-            const origin = `${destInfo.startLatLng.lat},${destInfo.startLatLng.lng}`;
-            const destination = `${destInfo.endLatLng.lat},${destInfo.endLatLng.lng}`;
-            const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=transit&transit_mode=bus`;
-            window.open(mapsUrl, '_blank');
+        if (isPublicTransport && destInfo.endLatLng) {
+            // Prefer labels (names) for better display on Google Maps
+            const originStr = destInfo.startLabel && destInfo.startLabel !== 'Current location' 
+                ? destInfo.startLabel 
+                : (destInfo.startLatLng ? `${destInfo.startLatLng.lat},${destInfo.startLatLng.lng}` : 'current location');
+            
+            const destStr = destInfo.endLabel || `${destInfo.endLatLng.lat},${destInfo.endLatLng.lng}`;
+            
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=transit&transit_mode=bus`;
+            
+            // Redirect to maps in same tab
+            window.location.href = mapsUrl;
         }
 
         carLogState.publicTransportMode = false;

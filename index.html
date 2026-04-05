@@ -214,9 +214,8 @@
                 <div class="card mini-card" style="border: 2px solid var(--primary-green); margin:0;" onclick="logQuick('Food')"><i data-lucide="utensils"></i> Food</div>
                 <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="openCarLogModal()"><i data-lucide="car"></i> Car</div>
                 <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="logQuick('Shopping')"><i data-lucide="shopping-bag"></i> Order</div>
-                <div class="card mini-card" style="border: 1px solid #4caf50; margin:0; background: #e8f5e9;" onclick="openPublicTransportModal()"><i data-lucide="bus"></i> Transit</div>
                 <!-- Feature 05: Receipt Scanner -->
-                <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0; background: #e3f2fd; grid-column: 1 / -1;" onclick="document.getElementById('receipt-upload').click()"><i data-lucide="camera"></i> Scan Receipt</div>
+                <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0; background: #e3f2fd;" onclick="document.getElementById('receipt-upload').click()"><i data-lucide="camera"></i> Scan</div>
             </div>
             <input type="file" id="receipt-upload" accept="image/*" capture="environment" style="display:none;">
             
@@ -266,18 +265,23 @@
             </div>
 
             <div id="car-view-add" class="car-log-view" hidden>
-                <p class="car-hint">Choose how to add a vehicle.</p>
-                <p class="car-add-empty-note">No car added</p>
+                <p class="car-hint">Choose how to add a vehicle or log transit.</p>
+                <p class="car-add-empty-note" style="display:none;">No car added</p>
                 <div class="car-add-split">
                     <button type="button" class="car-choice-btn" id="car-btn-scan">
                         <i data-lucide="camera"></i>
-                        <span>Scan</span>
-                        <small>Photo → match your garage</small>
+                        <span>Scan car</span>
+                        <small>Photo identification</small>
                     </button>
                     <button type="button" class="car-choice-btn" id="car-btn-manual">
                         <i data-lucide="keyboard"></i>
-                        <span>Manual</span>
-                        <small>Type make &amp; model</small>
+                        <span>Manual car</span>
+                        <small>Type make & model</small>
+                    </button>
+                    <button type="button" class="car-choice-btn" id="car-btn-transit" style="background:var(--bg-main); border:1px solid #4caf50;">
+                        <i data-lucide="bus" style="color:#4caf50;"></i>
+                        <span>Transit</span>
+                        <small>Bus directions</small>
                     </button>
                 </div>
             </div>
