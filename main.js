@@ -587,21 +587,19 @@ async function deleteActivityOnServer(id) {
     }
 }
 
-function buildActivityFeedHtml(feedActs, receiptPreviews) {
-    return feedActs
-        .map((act) => {
-            const id = act._id ?? act.id;
-            const ic = safeFeedIcon(act.icon);
-            const intenColor =
-                act.intensity === 'High' ? '#e74c3c' : act.intensity === 'Medium' ? '#f57c00' : '#2ecc71';
-            const val = Number(act.value);
-            const img = receiptPreviewForActivity(act, receiptPreviews);
-            const timeStr = formatActivityFeedTime(act.timestamp);
-            const thumb = img
-                ? `<img class="activity-feed-thumb" src="${escapeAttr(img)}" alt="" />`
-                : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
-            const valAttr = Number.isFinite(val) ? val : 0;
-            return `
+function buildSingleActivityRowHtml(act, receiptPreviews) {
+    const id = act._id ?? act.id;
+    const ic = safeFeedIcon(act.icon);
+    const intenColor =
+        act.intensity === 'High' ? '#e74c3c' : act.intensity === 'Medium' ? '#f57c00' : '#2ecc71';
+    const val = Number(act.value);
+    const img = receiptPreviewForActivity(act, receiptPreviews);
+    const timeStr = formatActivityFeedTime(act.timestamp);
+    const thumb = img
+        ? `<img class="activity-feed-thumb" src="${escapeAttr(img)}" alt="" />`
+        : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
+    const valAttr = Number.isFinite(val) ? val : 0;
+    return `
             <div class="activity-swipe-wrap" data-activity-id="${String(id)}" data-activity-value="${valAttr}">
               <div class="activity-swipe-actions">
                 <div class="activity-swipe-delete-visual" aria-hidden="true">
@@ -623,8 +621,43 @@ function buildActivityFeedHtml(feedActs, receiptPreviews) {
                 </div>
               </div>
             </div>`;
-        })
-        .join('');
+}
+
+function buildActivityFeedHtml(feedActs, receiptPreviews) {
+    return feedActs.map((act) => buildSingleActivityRowHtml(act, receiptPreviews)).join('');
+}
+
+const ACTIVITY_FEED_EMPTY_HTML =
+    '<div class="activity-feed-empty" style="text-align:center; padding:24px; color:var(--text-dim); font-size:14px;">No activity yet. Log food, travel, or a receipt to get started.</div>';
+
+/** FLIP: rows below the removed slot animate upward instead of jumping */
+function flipAnimateFeedSlideUp(feed, onDone) {
+    const rows = [...feed.querySelectorAll('.activity-swipe-wrap')].filter((el) => {
+        const dy = el._flipDy;
+        return typeof dy === 'number' && Math.abs(dy) >= 0.5;
+    });
+    if (rows.length === 0) {
+        if (window.lucide) lucide.createIcons();
+        onDone?.();
+        return;
+    }
+    requestAnimationFrame(() => {
+        rows.forEach((el) => {
+            el.style.transform = `translateY(${el._flipDy}px)`;
+            el.style.transition = 'none';
+        });
+        requestAnimationFrame(() => {
+            rows.forEach((el) => {
+                el.style.transition = 'transform 0.34s cubic-bezier(0.25, 0.82, 0.2, 1)';
+                el.style.transform = '';
+                delete el._flipDy;
+            });
+            window.setTimeout(() => {
+                if (window.lucide) lucide.createIcons();
+                onDone?.();
+            }, 360);
+        });
+    });
 }
 
 function applyOptimisticActivityDelete(activityId, value) {
@@ -646,8 +679,7 @@ function mountActivityFeedFromSnapshot() {
         if (window.lucide) lucide.createIcons();
         initActivitySwipeFeed(feed);
     } else {
-        feed.innerHTML =
-            '<div style="text-align:center; padding:24px; color:var(--text-dim); font-size:14px;">No activity yet. Log food, travel, or a receipt to get started.</div>';
+        feed.innerHTML = ACTIVITY_FEED_EMPTY_HTML;
     }
 }
 
@@ -719,6 +751,14 @@ function initActivitySwipeFeed(container) {
             const id = wrap.dataset.activityId;
             const value = Number(wrap.dataset.activityValue) || 0;
 
+            const feedEl = document.getElementById('activity-feed');
+            const beforeCollapseTops = new Map();
+            if (feedEl) {
+                feedEl.querySelectorAll('.activity-swipe-wrap').forEach((el) => {
+                    beforeCollapseTops.set(el, el.getBoundingClientRect().top);
+                });
+            }
+
             wrap.classList.remove('activity-swipe-dragging');
             wrap.classList.add('activity-feed-row-removing');
             const h = wrap.offsetHeight;
@@ -731,9 +771,53 @@ function initActivitySwipeFeed(container) {
             const complete = () => {
                 if (finished) return;
                 finished = true;
+                const feed = document.getElementById('activity-feed');
+                if (!feed || !carbonSnapshot) {
+                    commitInFlight = false;
+                    deleteActivityOnServer(id).catch((err) => {
+                        alert(err.message || 'Could not delete activity');
+                        refreshData();
+                    });
+                    return;
+                }
+
                 applyOptimisticActivityDelete(id, value);
-                mountActivityFeedFromSnapshot();
-                commitInFlight = false;
+                wrap.remove();
+
+                const acts = carbonSnapshot.activities.slice(0, 10);
+                const previews = carbonSnapshot.receiptPreviews || {};
+                if (acts.length === 0) {
+                    feed.innerHTML = ACTIVITY_FEED_EMPTY_HTML;
+                    commitInFlight = false;
+                    deleteActivityOnServer(id).catch((err) => {
+                        alert(err.message || 'Could not delete activity');
+                        refreshData();
+                    });
+                    return;
+                }
+
+                const existing = [...feed.querySelectorAll('.activity-swipe-wrap')];
+                const existingIds = new Set(existing.map((w) => String(w.dataset.activityId)));
+                for (const act of acts) {
+                    const aid = String(act._id ?? act.id);
+                    if (!existingIds.has(aid)) {
+                        feed.insertAdjacentHTML('beforeend', buildSingleActivityRowHtml(act, previews));
+                        existingIds.add(aid);
+                    }
+                }
+
+                feed.querySelectorAll('.activity-swipe-wrap').forEach((el) => {
+                    const oldTop = beforeCollapseTops.get(el);
+                    if (oldTop === undefined) return;
+                    const newTop = el.getBoundingClientRect().top;
+                    el._flipDy = oldTop - newTop;
+                });
+
+                flipAnimateFeedSlideUp(feed, () => {
+                    initActivitySwipeFeed(feed);
+                    commitInFlight = false;
+                });
+
                 deleteActivityOnServer(id).catch((err) => {
                     alert(err.message || 'Could not delete activity');
                     refreshData();
@@ -837,8 +921,7 @@ function renderData(data) {
         if (window.lucide) lucide.createIcons();
         initActivitySwipeFeed(feed);
     } else if (feed) {
-        feed.innerHTML =
-            '<div style="text-align:center; padding:24px; color:var(--text-dim); font-size:14px;">No activity yet. Log food, travel, or a receipt to get started.</div>';
+        feed.innerHTML = ACTIVITY_FEED_EMPTY_HTML;
     }
 
     const tips = document.getElementById('ai-tips');
