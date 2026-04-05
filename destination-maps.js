@@ -250,6 +250,9 @@ export function initDestinationMaps() {
                 }
                 updateStartMarker();
                 syncStartSummary();
+                // Populate the start input field with the current location text
+                const startInput = document.getElementById('dest-start-input');
+                if (startInput) startInput.value = 'Current location';
                 setStatus('');
             },
             () => {
