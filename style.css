@@ -388,6 +388,7 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 .activity-swipe-panel {
   position: relative;
   z-index: 1;
+  touch-action: pan-y;
   display: flex;
   align-items: center;
   gap: 14px;
