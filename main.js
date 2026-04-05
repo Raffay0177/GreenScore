@@ -1068,14 +1068,7 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
     const valStr = isProcessing ? '...' : (isError ? 'FAIL' : `+${val.toFixed(1)}`);
     const metaStr = isProcessing ? 'Analyzing image...' : (isError ? 'Could not analyze' : `CO2e · ${act.intensity}`);
 
-    const isClimatiq = act.isVerified || (String(act.shortReason || '').includes('Climatiq'));
-    
-    let sourceBadge = '';
-    if (isClimatiq) {
-        sourceBadge = `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(71,230,129,0.1); color:var(--primary-green); padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; border: 1px solid rgba(71,230,129,0.2); margin-left:8px;"><i data-lucide="check-circle" width="10" height="10"></i> CLIMATIQ</span>`;
-    } else if (!isProcessing && !isError) {
-        sourceBadge = `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.05); color:var(--text-dim); padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; border: 1px solid rgba(0,0,0,0.1); margin-left:8px;">AI ESTIMATE</span>`;
-    }
+
 
     const valAttr = Number.isFinite(val) ? val : 0;
     return `
@@ -1090,10 +1083,7 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
                 <div class="activity-feed-thumb-wrap">${thumb}</div>
                 <div class="activity-feed-body">
                   <div class="activity-feed-title-row">
-                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                      <span class="activity-feed-title clash">${escapeHtml(act.label)}</span>
-                      ${sourceBadge}
-                    </div>
+                    <span class="activity-feed-title clash">${escapeHtml(act.label)}</span>
                     <span class="activity-feed-time">${escapeHtml(timeStr)}</span>
                   </div>
                   <div class="activity-feed-value-row">

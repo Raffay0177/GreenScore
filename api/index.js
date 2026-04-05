@@ -17,72 +17,6 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-/**
- * Helper to fetch accurate carbon data from Climatiq.io
- * FALLBACK: If Climatiq has no match, it returns null.
- */
-async function getClimatiqEmission(query) {
-  if (!process.env.CLIMATIQ_API_KEY) return null;
-  
-  try {
-    // 1. Search for the emission factor (GET method)
-    const url = new URL('https://api.climatiq.io/data/v1/search');
-    url.searchParams.append('query', query);
-    url.searchParams.append('data_version', '^2');
-    url.searchParams.append('results_per_page', '1');
-
-    const searchRes = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.CLIMATIQ_API_KEY}`
-      }
-    });
-
-    if (!searchRes.ok) return null;
-    const searchData = await searchRes.json();
-    
-    if (!searchData.results || searchData.results.length === 0) return null;
-    
-    const factor = searchData.results[0];
-    
-    // 2. Perform the estimate (default 1 unit of the factor's allowed unit, e.g. 1kg or 1 unit)
-    // We assume 'weight' as the primary parameter for food/products.
-    const estimateRes = await fetch('https://api.climatiq.io/data/v1/estimate', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.CLIMATIQ_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        emission_factor: {
-          activity_id: factor.activity_id,
-          data_version: "^2"
-        },
-        parameters: {
-          // Most food activities use 'weight' or 'money'. 
-          // Defaulting to 1kg if weight is a valid parameter.
-          weight: 1,
-          weight_unit: "kg" 
-        }
-      })
-    });
-
-    if (!estimateRes.ok) {
-        // If estimate fails (maybe unit mismatch), we can try to return the GWP from search if it exists
-        return factor.constituent_gwp ? { value: factor.constituent_gwp, source: 'Climatiq (Search)' } : null;
-    }
-    
-    const estData = await estimateRes.json();
-    return {
-      value: estData.co2e || estData.total_co2e,
-      source: 'Climatiq',
-      factor_name: factor.name
-    };
-  } catch (err) {
-    console.error("Climatiq Error:", err.message);
-    return null;
-  }
-}
 
 const app = express();
 
@@ -245,7 +179,7 @@ Return ONLY valid JSON (no markdown):
   "confidence": 0.85,
   "shortReason": "one sentence"
 }
-Rules: estimatedKgPerTrip is approximate kg CO2 for a typical short commute trip (3–15 mi) for that vehicle; use 1.2–2.0 for small EV/hybrid, 2–4 for average sedan, 4–8 for SUV/truck.`;
+Rules: estimatedKgPerTrip is highly accurate estimated kg CO2 for a typical short commute trip (3–15 mi) for the SPECIFIC make and model identified. Adjust appropriately for high-efficiency cars (e.g. Civic vs Camry) versus SUVs based on real-world MPG. BEVs ~0.5-1.5, sedans ~2.5-4, SUVs ~5-8.`;
 
     const result = await model.generateContent([
       prompt,
@@ -267,21 +201,12 @@ Rules: estimatedKgPerTrip is approximate kg CO2 for a typical short commute trip
       estimatedKgPerTrip: Math.max(0.1, Math.min(50, Number(sug.estimatedKgPerTrip) || 2.4))
     };
 
-    // --- CLIMATIQ ENHANCEMENT FOR CARS ---
-    const carSearch = `${suggested.make} ${suggested.model}`;
-    const climatiqMatch = await getClimatiqEmission(carSearch);
-    if (climatiqMatch) {
-        suggested.estimatedKgPerTrip = climatiqMatch.value * 12; // Assuming ~12km per trip if factor is per km
-        // Note: Climatiq factors for cars are often per km. We normalize to our "per trip" baseline (~12km).
-        // If the match didn't specify units, we use the value as is.
-    }
-
     res.json({
       matchType: matchedCarId ? 'existing' : 'new',
       matchedCarId,
       suggested,
       confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0)),
-      shortReason: climatiqMatch ? `Verified via ${climatiqMatch.source}.` : String(parsed.shortReason || '').slice(0, 300)
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
     });
   } catch (err) {
     console.error('Car match error:', err);
@@ -306,24 +231,14 @@ Make: ${make}
 Model: ${modelName}
 
 Return ONLY valid JSON (no markdown):
-{"estimatedKgPerTrip": 2.4, "shortReason": "one short sentence citing fuel type/size if known"}
-Use ~1.0–2.0 for BEV/small hybrid, ~2–4 for average ICE sedan, ~4–9 for large SUV/truck. Be conservative.`;
+{"estimatedKgPerTrip": 2.4, "shortReason": "one short sentence citing the real-world fuel economy/efficiency for this exact make and model"}
+Use highly precise, real-world MPG/efficiency data for this specific vehicle model to calculate the carbon footprint of a typical ~10-mile trip. E.g. A Toyota Camry will have different emissions than a Honda Civic. BEVs: ~0.5-1.5kg, Sedans: ~2-4kg, SUVs: ~5-9kg.`;
 
     const result = await aiModel.generateContent(prompt);
     const responseText = result.response.text();
     const cleanJson = responseText.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
     const kg = Math.max(0.1, Math.min(50, Number(parsed.estimatedKgPerTrip) || 2.4));
-    
-    // --- CLIMATIQ ENHANCEMENT FOR MANUAL ENTRY ---
-    const climatiqMatch = await getClimatiqEmission(`${make} ${modelName}`);
-    if (climatiqMatch) {
-        return res.json({
-            estimatedKgPerTrip: climatiqMatch.value * 12, // Normalized to typical trip distance
-            shortReason: `Verified data via ${climatiqMatch.source}.`
-        });
-    }
-
     res.json({
       estimatedKgPerTrip: kg,
       shortReason: String(parsed.shortReason || '').slice(0, 300)
@@ -346,15 +261,16 @@ app.post('/api/food/estimate', checkJwt, async (req, res) => {
     }
 
     const aiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const prompt = `For a carbon-tracking app, estimate the kg CO2e for this food item or meal: "${description}". 
+    const prompt = `For a carbon-tracking app, precisely estimate the kg CO2e for this food item, meal, or product: "${description}". 
+    Use highly accurate agricultural and manufacturing footprint data. Distinguish carefully between different products.
     Return ONLY valid JSON (no markdown):
     {
       "label": "a short, clean name for the item",
       "value": 1.5,
       "intensity": "Low" or "High",
-      "shortReason": "one short sentence explaining the footprint"
+      "shortReason": "one short sentence explaining the precise footprint calculation"
     }
-    Rules: Beef/Lamb are very high (4-10+ kg), poultry/pork are medium (1-3 kg), plants/grains are low (0.1-0.8 kg).`;
+    Rules: Beef/Lamb are very high (4-10+ kg), poultry/pork are medium (1-3 kg), plants/grains are low (0.1-0.8 kg). Provide realistic decimals.`;
 
     const result = await aiModel.generateContent(prompt);
     const responseText = result.response.text();
@@ -362,22 +278,11 @@ app.post('/api/food/estimate', checkJwt, async (req, res) => {
     const parsed = JSON.parse(cleanJson);
     const label = String(parsed.label || description).slice(0, 100);
 
-    // --- CLIMATIQ ENHANCEMENT ---
-    const climatiqMatch = await getClimatiqEmission(label);
-    if (climatiqMatch) {
-      return res.json({
-        label: climatiqMatch.factor_name || label,
-        value: climatiqMatch.value,
-        intensity: climatiqMatch.value > 2 ? 'High' : 'Low',
-        shortReason: `Verified data via ${climatiqMatch.source}.`
-      });
-    }
-    
     res.json({
       label,
       value: Math.max(0.01, Math.min(100, Number(parsed.value) || 0.5)),
       intensity: parsed.intensity === 'High' ? 'High' : 'Low',
-      shortReason: String(parsed.shortReason || 'AI estimated.').slice(0, 300)
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
     });
   } catch (err) {
     console.error('Food estimate error:', err);
@@ -400,13 +305,14 @@ app.post('/api/food/scan-barcode', checkJwt, async (req, res) => {
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const mimeType = image.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
 
-    const prompt = `Identify the product from this barcode photo and estimate its typical carbon footprint (kg CO2e).
+    const prompt = `Identify the product from this barcode photo and precisely estimate its typical carbon footprint (kg CO2e).
+    Use highly accurate data. Distinguish between different types of similar items based on typical manufacturing footprints.
     Return ONLY valid JSON (no markdown):
     {
       "label": "Product Name",
       "value": 0.8,
       "intensity": "Low" or "High",
-      "shortReason": "one short sentence"
+      "shortReason": "one short sentence explaining the footprint derivation"
     }
     If you cannot see a barcode or identify the product, return an error in the JSON.`;
 
@@ -420,17 +326,6 @@ app.post('/api/food/scan-barcode', checkJwt, async (req, res) => {
     
     const label = String(parsed.label || 'Scanned Product').slice(0, 100);
 
-    // --- CLIMATIQ ENHANCEMENT ---
-    const climatiqMatch = await getClimatiqEmission(label);
-    if (climatiqMatch) {
-        return res.json({
-            label: climatiqMatch.factor_name || label,
-            value: climatiqMatch.value,
-            intensity: climatiqMatch.value > 2 ? 'High' : 'Low',
-            shortReason: `Verified barcode data via ${climatiqMatch.source}.`
-        });
-    }
-
     if (parsed.error) {
         return res.status(422).json({ error: parsed.error });
     }
@@ -439,7 +334,7 @@ app.post('/api/food/scan-barcode', checkJwt, async (req, res) => {
       label,
       value: Math.max(0.01, Math.min(100, Number(parsed.value) || 1.0)),
       intensity: parsed.intensity === 'High' ? 'High' : 'Low',
-      shortReason: String(parsed.shortReason || 'AI estimated.').slice(0, 300)
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
     });
   } catch (err) {
     console.error('Barcode scan error:', err);
@@ -502,8 +397,8 @@ app.post('/api/scan', checkJwt, async (req, res) => {
 
     const prompt = `
       Analyze this grocery receipt. 
-      Identify every food or shopping item and estimate its carbon footprint in kg CO2.
-      Use your knowledge of agricultural impact (e.g., beef is high, vegetables are low).
+      Identify every food or shopping item and VERY accurately estimate its carbon footprint in kg CO2.
+      Use detailed agricultural and manufacturing impact data (e.g., beef is very high, vegetables are very low, specific products vary by precise composition).
       Return ONLY a JSON object in this format:
       {
         "items": [
@@ -524,27 +419,20 @@ app.post('/api/scan', checkJwt, async (req, res) => {
     const parsedData = JSON.parse(cleanJson);
 
     const rawItems = Array.isArray(parsedData.items) ? parsedData.items : [];
-    const items = [];
+    const items = rawItems.map((it) => ({
+      label: (String(it?.label ?? 'Item').trim().slice(0, 200)) || 'Item',
+      value: Math.max(0, Number(it?.value) || 0),
+      count: Math.max(1, Math.floor(Number(it?.count) || 1)),
+      category:
+        typeof it?.category === 'string' && it.category.trim()
+          ? it.category.trim().slice(0, 80)
+          : 'General'
+    }));
     
-    for (const it of rawItems) {
-      const originalLabel = (String(it?.label ?? 'Item').trim().slice(0, 200)) || 'Item';
-      
-      // --- CLIMATIQ ENHANCEMENT PER ITEM ---
-      const climatiqMatch = await getClimatiqEmission(originalLabel);
-      
-      items.push({
-        label: climatiqMatch ? (climatiqMatch.factor_name || originalLabel) : originalLabel,
-        value: climatiqMatch ? climatiqMatch.value : Math.max(0, Number(it?.value) || 0),
-        count: Math.max(1, Math.floor(Number(it?.count) || 1)),
-        category:
-          typeof it?.category === 'string' && it.category.trim()
-            ? it.category.trim().slice(0, 80)
-            : 'General',
-        isVerified: !!climatiqMatch
-      });
+    let totalCO2 = Math.max(0, Number(parsedData.totalCO2));
+    if (!Number.isFinite(totalCO2)) {
+      totalCO2 = items.reduce((sum, row) => sum + row.value, 0);
     }
-    
-    let totalCO2 = items.reduce((sum, row) => sum + row.value, 0);
 
     const newReceipt = await Receipt.create({
       userId,
