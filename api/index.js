@@ -65,7 +65,11 @@ app.post('/api/log', checkJwt, async (req, res) => {
     // Update Metrics
     await UserMetric.findOneAndUpdate(
       { userId },
-      { $inc: { currentEmissions: value } },
+      {
+        $inc: { currentEmissions: value },
+        $set: { lastLogged: new Date() },
+        $setOnInsert: { dailyGoal: 47, streak: 0 }
+      },
       { new: true, upsert: true }
     );
 
@@ -111,29 +115,48 @@ app.post('/api/scan', checkJwt, async (req, res) => {
     const cleanJson = responseText.replace(/```json|```/g, "").trim();
     const parsedData = JSON.parse(cleanJson);
 
-    // Save to Database
+    const rawItems = Array.isArray(parsedData.items) ? parsedData.items : [];
+    const items = rawItems.map((it) => ({
+      label: (String(it?.label ?? 'Item').trim().slice(0, 200)) || 'Item',
+      value: Math.max(0, Number(it?.value) || 0),
+      count: Math.max(1, Math.floor(Number(it?.count) || 1)),
+      category:
+        typeof it?.category === 'string' && it.category.trim()
+          ? it.category.trim().slice(0, 80)
+          : 'General'
+    }));
+    let totalCO2 = Math.max(0, Number(parsedData.totalCO2));
+    if (!Number.isFinite(totalCO2)) {
+      totalCO2 = items.reduce((sum, row) => sum + row.value, 0);
+    }
+
     const newReceipt = await Receipt.create({
       userId,
       imageBase64: image,
-      items: parsedData.items,
-      totalCO2: parsedData.totalCO2
+      items,
+      totalCO2
     });
 
-    // Also Log as individual activities so they show in the main feed
-    for (const item of parsedData.items) {
-        await Activity.create({
-            userId,
-            label: item.label,
-            value: item.value,
-            icon: item.category === 'Food' ? 'utensils' : 'shopping-bag',
-            intensity: item.value > 2 ? 'High' : 'Low'
-        });
-        
-        await UserMetric.findOneAndUpdate(
-            { userId },
-            { $inc: { currentEmissions: item.value } },
-            { upsert: true }
-        );
+    const now = new Date();
+    for (const item of items) {
+      await Activity.create({
+        userId,
+        label: item.label,
+        value: item.value,
+        icon: item.category === 'Food' ? 'utensils' : 'shopping-bag',
+        intensity: item.value > 2 ? 'High' : 'Low',
+        source: 'receipt'
+      });
+
+      await UserMetric.findOneAndUpdate(
+        { userId },
+        {
+          $inc: { currentEmissions: item.value },
+          $set: { lastLogged: now },
+          $setOnInsert: { dailyGoal: 47, streak: 0 }
+        },
+        { upsert: true }
+      );
     }
 
     res.json(newReceipt);

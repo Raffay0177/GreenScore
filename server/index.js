@@ -62,7 +62,11 @@ app.post('/api/log', checkJwt, async (req, res) => {
     // Update Metrics
     await UserMetric.findOneAndUpdate(
       { userId },
-      { $inc: { currentEmissions: value } },
+      {
+        $inc: { currentEmissions: value },
+        $set: { lastLogged: new Date() },
+        $setOnInsert: { dailyGoal: 47, streak: 0 }
+      },
       { new: true, upsert: true }
     );
 
