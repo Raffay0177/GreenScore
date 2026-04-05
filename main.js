@@ -1632,8 +1632,9 @@ function initActivitySwipeFeed(container) {
             wrap._maxSwipe = getMaxSwipeDist(wrap);
             
             const rect = panel.getBoundingClientRect();
-            // Using a slightly larger 35% zone for better reliability
-            const startedNearRight = (e.clientX > rect.left + (rect.width * 0.65));
+            // Be more generous: 40% from right edge allows easier activation
+            const threshold = rect.right - (rect.width * 0.4);
+            const startedNearRight = (e.clientX > threshold);
             
             activePointerId = e.pointerId;
             startClientX = e.clientX;
@@ -1641,7 +1642,7 @@ function initActivitySwipeFeed(container) {
             startOffset = wrap._swipeOffset ?? 0;
             isHorizontalLock = false;
             
-            // Still allow tracking so we can decide later if it wasn't a clear vertical intent
+            // Only lock if we definitely DID NOT start in the swipe zone
             isVerticalLock = !startedNearRight;
             dragging = true;
         });
@@ -1653,26 +1654,29 @@ function initActivitySwipeFeed(container) {
             const dx = e.clientX - startClientX;
             const dy = e.clientY - startY;
 
-            // Only lock into horizontal mode if moved significantly horizontally 
-            // AND the move is more horizontal than vertical.
             if (!isHorizontalLock) {
+                // If it's more vertical than horizontal, or if we moved vertically enough
                 if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
                     isVerticalLock = true;
-                    dragging = false; // release control to native scroll
+                    dragging = false; 
                     try { panel.releasePointerCapture(e.pointerId); } catch(_) {}
                     return;
                 }
+                
+                // If we moved horizontally enough AND we started in the right zone
                 if (Math.abs(dx) > 10) {
                     isHorizontalLock = true;
                     wrap.classList.add('activity-swipe-dragging');
                     try { panel.setPointerCapture(e.pointerId); } catch (_) {}
                 } else {
-                    return; // Haven't moved enough yet to decide
+                    return; 
                 }
             }
 
             const next = startOffset + dx;
-            applyActivityPanelTransform(wrap, panel, next, { animated: false, allowOvershoot: true });
+            // Prevent swiping RIGHT beyond origin
+            const boundedNext = Math.min(0, next);
+            applyActivityPanelTransform(wrap, panel, boundedNext, { animated: false, allowOvershoot: true });
         });
 
         panel.addEventListener('pointerup', finishDrag);
