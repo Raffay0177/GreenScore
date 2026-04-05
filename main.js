@@ -1441,7 +1441,6 @@ async function deleteActivityById(id, { confirmFirst = true } = {}) {
     }
 }
 
-
 function initActivitySwipeFeed(container) {
     const wraps = container.querySelectorAll('.activity-swipe-wrap');
     wraps.forEach((wrap) => {
