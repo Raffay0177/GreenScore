@@ -587,6 +587,70 @@ async function deleteActivityOnServer(id) {
     }
 }
 
+function buildActivityFeedHtml(feedActs, receiptPreviews) {
+    return feedActs
+        .map((act) => {
+            const id = act._id ?? act.id;
+            const ic = safeFeedIcon(act.icon);
+            const intenColor =
+                act.intensity === 'High' ? '#e74c3c' : act.intensity === 'Medium' ? '#f57c00' : '#2ecc71';
+            const val = Number(act.value);
+            const img = receiptPreviewForActivity(act, receiptPreviews);
+            const timeStr = formatActivityFeedTime(act.timestamp);
+            const thumb = img
+                ? `<img class="activity-feed-thumb" src="${escapeAttr(img)}" alt="" />`
+                : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
+            const valAttr = Number.isFinite(val) ? val : 0;
+            return `
+            <div class="activity-swipe-wrap" data-activity-id="${String(id)}" data-activity-value="${valAttr}">
+              <div class="activity-swipe-actions">
+                <div class="activity-swipe-delete-visual" aria-hidden="true">
+                  <i data-lucide="trash-2" width="22" height="22" stroke-width="2"></i>
+                  <span class="activity-swipe-delete-label">Delete</span>
+                </div>
+              </div>
+              <div class="activity-swipe-panel">
+                <div class="activity-feed-thumb-wrap">${thumb}</div>
+                <div class="activity-feed-body">
+                  <div class="activity-feed-title-row">
+                    <span class="activity-feed-title clash">${escapeHtml(act.label)}</span>
+                    <span class="activity-feed-time">${escapeHtml(timeStr)}</span>
+                  </div>
+                  <div class="activity-feed-value-row">
+                    <span class="activity-feed-value" style="color:${intenColor};">+${Number.isFinite(val) ? val.toFixed(1) : '0.0'} kg</span>
+                    <span class="activity-feed-meta">CO2e · ${escapeHtml(act.intensity)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        })
+        .join('');
+}
+
+function applyOptimisticActivityDelete(activityId, value) {
+    if (!carbonSnapshot?.activities) return;
+    const sid = String(activityId);
+    carbonSnapshot.activities = carbonSnapshot.activities.filter((a) => String(a._id ?? a.id) !== sid);
+    const v = Number(value) || 0;
+    carbonSnapshot.currentEmissions = Math.max(0, Number(carbonSnapshot.currentEmissions || 0) - v);
+    applyDayInsights();
+}
+
+function mountActivityFeedFromSnapshot() {
+    const feed = document.getElementById('activity-feed');
+    if (!feed || !carbonSnapshot) return;
+    const feedActs = (carbonSnapshot.activities || []).slice(0, 10);
+    const previews = carbonSnapshot.receiptPreviews || {};
+    if (feedActs.length) {
+        feed.innerHTML = buildActivityFeedHtml(feedActs, previews);
+        if (window.lucide) lucide.createIcons();
+        initActivitySwipeFeed(feed);
+    } else {
+        feed.innerHTML =
+            '<div style="text-align:center; padding:24px; color:var(--text-dim); font-size:14px;">No activity yet. Log food, travel, or a receipt to get started.</div>';
+    }
+}
+
 async function deleteActivityById(id, { confirmFirst = true } = {}) {
     if (!id) return;
     if (confirmFirst && !confirm('Remove this activity from your log?')) return;
@@ -640,7 +704,7 @@ function initActivitySwipeFeed(container) {
                 if (w === wrap) return;
                 const p = w.querySelector('.activity-swipe-panel');
                 if (!p) return;
-                w.classList.remove('activity-swipe-dragging', 'activity-swipe-exiting');
+                w.classList.remove('activity-swipe-dragging', 'activity-feed-row-removing');
                 w.style.setProperty('--swipe-progress', '0');
                 w.style.setProperty('--swipe-linear', '0');
                 w._swipeOffset = 0;
@@ -649,53 +713,51 @@ function initActivitySwipeFeed(container) {
             });
         };
 
-        const EXIT_MS = 340;
-
-        const waitExitAnimation = () =>
-            new Promise((resolve) => {
-                let finished = false;
-                const end = () => {
-                    if (finished) return;
-                    finished = true;
-                    window.clearTimeout(tid);
-                    panel.removeEventListener('transitionend', onEnd);
-                    panel.style.willChange = '';
-                    resolve();
-                };
-                const tid = window.setTimeout(end, EXIT_MS + 80);
-                const onEnd = (ev) => {
-                    if (ev.propertyName && ev.propertyName !== 'transform') return;
-                    end();
-                };
-                panel.addEventListener('transitionend', onEnd);
-            });
-
-        const runExitDelete = async () => {
+        const runExitDelete = () => {
             if (commitInFlight) return;
             commitInFlight = true;
             const id = wrap.dataset.activityId;
-            try {
-                wrap.classList.remove('activity-swipe-dragging');
-                wrap.classList.add('activity-swipe-exiting');
-                wrap.style.setProperty('--swipe-progress', '1');
-                wrap.style.setProperty('--swipe-linear', '1');
-                panel.style.willChange = 'transform';
-                const dist = wrap.offsetWidth + 28;
-                panel.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.25, 0.82, 0.2, 1)`;
-                panel.style.transform = `translateX(${-dist}px)`;
+            const value = Number(wrap.dataset.activityValue) || 0;
 
-                const apiPromise = deleteActivityOnServer(id);
-                const animPromise = waitExitAnimation();
-                const [apiOutcome] = await Promise.allSettled([apiPromise, animPromise]);
+            wrap.classList.remove('activity-swipe-dragging');
+            wrap.classList.add('activity-feed-row-removing');
+            const h = wrap.offsetHeight;
+            wrap.style.overflow = 'hidden';
+            wrap.style.transition =
+                'max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease, margin-bottom 0.2s ease';
+            wrap.style.maxHeight = `${h}px`;
 
-                if (apiOutcome.status === 'rejected') {
-                    const msg = apiOutcome.reason?.message || 'Could not delete activity';
-                    alert(msg);
-                }
-                await refreshData();
-            } finally {
+            let finished = false;
+            const complete = () => {
+                if (finished) return;
+                finished = true;
+                applyOptimisticActivityDelete(id, value);
+                mountActivityFeedFromSnapshot();
                 commitInFlight = false;
-            }
+                deleteActivityOnServer(id).catch((err) => {
+                    alert(err.message || 'Could not delete activity');
+                    refreshData();
+                });
+            };
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    wrap.style.maxHeight = '0';
+                    wrap.style.opacity = '0';
+                    wrap.style.marginBottom = '0';
+                });
+            });
+
+            const onEnd = (ev) => {
+                if (ev.propertyName !== 'max-height') return;
+                wrap.removeEventListener('transitionend', onEnd);
+                complete();
+            };
+            wrap.addEventListener('transitionend', onEnd);
+            window.setTimeout(() => {
+                wrap.removeEventListener('transitionend', onEnd);
+                complete();
+            }, 260);
         };
 
         const finishDrag = (e) => {
@@ -730,7 +792,7 @@ function initActivitySwipeFeed(container) {
 
         panel.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
-            if (wrap.classList.contains('activity-swipe-exiting')) return;
+            if (wrap.classList.contains('activity-feed-row-removing')) return;
             closeAllOtherRows();
             wrap._maxSwipe = getMaxSwipeDist(wrap);
             wrap.classList.add('activity-swipe-dragging');
@@ -771,42 +833,7 @@ function renderData(data) {
     const feedActs = (data.activities || []).slice(0, 10);
     const previews = data.receiptPreviews || {};
     if (feed && feedActs.length) {
-        feed.innerHTML = feedActs
-            .map((act) => {
-                const id = act._id ?? act.id;
-                const ic = safeFeedIcon(act.icon);
-                const intenColor =
-                    act.intensity === 'High' ? '#e74c3c' : act.intensity === 'Medium' ? '#f57c00' : '#2ecc71';
-                const val = Number(act.value);
-                const img = receiptPreviewForActivity(act, previews);
-                const timeStr = formatActivityFeedTime(act.timestamp);
-                const thumb = img
-                    ? `<img class="activity-feed-thumb" src="${escapeAttr(img)}" alt="" />`
-                    : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
-                return `
-            <div class="activity-swipe-wrap" data-activity-id="${String(id)}">
-              <div class="activity-swipe-actions">
-                <div class="activity-swipe-delete-visual" aria-hidden="true">
-                  <i data-lucide="trash-2" width="22" height="22" stroke-width="2"></i>
-                  <span class="activity-swipe-delete-label">Delete</span>
-                </div>
-              </div>
-              <div class="activity-swipe-panel">
-                <div class="activity-feed-thumb-wrap">${thumb}</div>
-                <div class="activity-feed-body">
-                  <div class="activity-feed-title-row">
-                    <span class="activity-feed-title clash">${escapeHtml(act.label)}</span>
-                    <span class="activity-feed-time">${escapeHtml(timeStr)}</span>
-                  </div>
-                  <div class="activity-feed-value-row">
-                    <span class="activity-feed-value" style="color:${intenColor};">+${Number.isFinite(val) ? val.toFixed(1) : '0.0'} kg</span>
-                    <span class="activity-feed-meta">CO2e · ${escapeHtml(act.intensity)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>`;
-            })
-            .join('');
+        feed.innerHTML = buildActivityFeedHtml(feedActs, previews);
         if (window.lucide) lucide.createIcons();
         initActivitySwipeFeed(feed);
     } else if (feed) {

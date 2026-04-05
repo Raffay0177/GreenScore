@@ -305,7 +305,7 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   margin-bottom: 12px;
 }
 
-.activity-swipe-wrap.activity-swipe-exiting {
+.activity-swipe-wrap.activity-feed-row-removing {
   pointer-events: none;
 }
 
@@ -347,11 +347,6 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 
 .activity-swipe-wrap.activity-swipe-dragging .activity-swipe-delete-visual {
   transition: none;
-}
-
-.activity-swipe-wrap.activity-swipe-exiting .activity-swipe-delete-visual {
-  opacity: 1;
-  transition: opacity 0.35s ease;
 }
 
 .activity-swipe-delete-visual svg {
