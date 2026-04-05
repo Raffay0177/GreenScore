@@ -176,18 +176,46 @@
     <section id="tab-impact" class="tab-content" style="display: none;">
       <!-- Feature 06: Local Impact View -->
       <h3 class="section-title clash">Local Exposure</h3>
-      <div class="card" style="padding:0; overflow:hidden;">
-        <div style="height: 200px; background: #c5e1a5; position:relative; display:flex; align-items:center; justify-content:center;">
-            <div style="position:absolute; width:100%; height: 40%; bottom:0; background: rgba(0, 122, 255, 0.4); backdrop-filter: blur(4px);"></div>
-            <div class="clash" style="background:white; padding:8px 16px; border-radius:100px; z-index:10; font-size:14px; display:flex; align-items:center; gap:8px;" id="impact-banner-text">
-                <i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: var(--accent-orange);"></i>
-                Daily footprint: —
-            </div>
-        </div>
-        <div style="padding: 24px;">
-            <p style="font-size: 14px; line-height: 1.6;" id="impact-body-text">Select a day on the home calendar to see exposure based on what you logged.</p>
-        </div>
+      <div class="card" id="pictorial-gauge-container" style="text-align:center; padding: 32px 20px; transition: background 0.5s ease;">
+         <div id="impact-status-icon" style="margin-bottom: 24px; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+             <i data-lucide="leaf" style="width: 80px; height: 80px; color: var(--primary-green);"></i>
+         </div>
+         
+         <div class="clash" id="impact-status-title" style="font-size: 24px; margin-bottom: 8px; color: var(--primary-green);">HEALTHY</div>
+         <p id="impact-status-desc" style="font-size: 14px; color: var(--text-dim); margin-bottom: 32px; padding: 0 20px;">Your footprint is within the sustainable limit for your local environment.</p>
+
+         <!-- Pictorial Scale -->
+         <div style="display: flex; justify-content: space-between; position: relative; padding: 0 20px;">
+             <!-- Connector Line -->
+             <div style="position: absolute; top: 18px; left: 40px; right: 40px; height: 2px; background: var(--border-light); z-index: 0;"></div>
+             
+             <div class="gauge-step active" data-lvl="LOW" style="z-index: 1; transition: all 0.3s;">
+                 <div style="width: 36px; height: 36px; border-radius: 50%; background: white; border: 2px solid var(--primary-green); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;">
+                     <i data-lucide="leaf" style="width: 18px; color: var(--primary-green);"></i>
+                 </div>
+                 <span style="font-size: 9px; font-weight: 700; color: var(--text-dim);">HEALTHY</span>
+             </div>
+             <div class="gauge-step" data-lvl="MOD" style="z-index: 1; transition: all 0.3s;">
+                 <div style="width: 36px; height: 36px; border-radius: 50%; background: white; border: 2px solid #ddd; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;">
+                     <i data-lucide="shield" style="width: 18px; color: #ddd;"></i>
+                 </div>
+                 <span style="font-size: 9px; font-weight: 700; color: var(--text-dim);">MODERATE</span>
+             </div>
+             <div class="gauge-step" data-lvl="HIGH" style="z-index: 1; transition: all 0.3s;">
+                 <div style="width: 36px; height: 36px; border-radius: 50%; background: white; border: 2px solid #ddd; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;">
+                     <i data-lucide="alert-triangle" style="width: 18px; color: #ddd;"></i>
+                 </div>
+                 <span style="font-size: 9px; font-weight: 700; color: var(--text-dim);">STRESSED</span>
+             </div>
+             <div class="gauge-step" data-lvl="SEVERE" style="z-index: 1; transition: all 0.3s;">
+                 <div style="width: 36px; height: 36px; border-radius: 50%; background: white; border: 2px solid #ddd; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;">
+                     <i data-lucide="flame" style="width: 18px; color: #ddd;"></i>
+                 </div>
+                 <span style="font-size: 9px; font-weight: 700; color: var(--text-dim);">CRITICAL</span>
+             </div>
+         </div>
       </div>
+
     </section>
 
     <!-- Navigation -->

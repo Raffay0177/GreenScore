@@ -239,8 +239,8 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 
 /* Color-Coded Themes */
 .slide-usage { background: var(--bg-card); }
-.slide-gains { background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%); border: 1px solid rgba(46, 204, 113, 0.2); }
-.slide-risk { background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%); border: 1px solid rgba(231, 76, 60, 0.2); }
+.slide-gains { background: var(--bg-card); border: 1px solid var(--border-light); }
+.slide-risk { background: var(--bg-card); border: 1px solid var(--border-light); }
 
 .pagination {
   display: flex;

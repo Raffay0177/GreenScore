@@ -179,15 +179,51 @@ function applyDayInsights() {
             : `Keep going! Every kg you save helps our planet breathe a little easier today.`;
     }
 
-    // Impact Tab Dynamic Feedback
-    const impactBanner = document.getElementById('impact-banner-text');
-    const impactBody = document.getElementById('impact-body-text');
-    if (impactBanner) {
-        impactBanner.innerHTML = `<i data-lucide="${ratio > 1 ? 'alert-octagon' : 'check-circle'}" style="width: 16px; height: 16px; color: ${tier.color};"></i> ${tier.headline}`;
+    // Impact Tab Dynamic Pictorial Gauge
+    const gaugeContainer = document.getElementById('pictorial-gauge-container');
+    const statusIcon = document.getElementById('impact-status-icon');
+    const statusTitle = document.getElementById('impact-status-title');
+    const statusDesc = document.getElementById('impact-status-desc');
+
+    if (gaugeContainer && statusIcon && statusTitle) {
+        const levels = {
+            'LOW': { icon: 'leaf', title: 'HEALTHY', color: '#2ecc71', desc: 'Sustainable impact! Your current footprint is within healthy limits.' },
+            'MOD': { icon: 'shield', title: 'MODERATE', color: '#f1c40f', desc: 'Manageable impact. Small improvements can lead to a greener score.' },
+            'HIGH': { icon: 'alert-triangle', title: 'STRESSED', color: '#e67e22', desc: 'Elevated impact. Your local environment is under noticeable stress.' },
+            'SEVERE': { icon: 'flame', title: 'CRITICAL', color: '#e74c3c', desc: 'Critical impact. Urgent reduction is required to protect your local area.' }
+        };
+
+        const config = levels[tier.level] || levels['LOW'];
+        
+        // Update Main Status
+        statusIcon.innerHTML = `<i data-lucide="${config.icon}" style="width: 80px; height: 80px; color: ${config.color}; transition: all 0.5s;"></i>`;
+        statusTitle.innerText = config.title;
+        statusTitle.style.color = config.color;
+        statusDesc.innerText = config.desc;
+        
+        // Update Gauge Steps
+        document.querySelectorAll('.gauge-step').forEach(step => {
+            const stepLvl = step.dataset.lvl;
+            const circle = step.querySelector('div');
+            const icon = step.querySelector('i');
+            const label = step.querySelector('span');
+            
+            if (stepLvl === tier.level) {
+                step.classList.add('active');
+                circle.style.borderColor = config.color;
+                circle.style.transform = 'scale(1.2)';
+                icon.style.color = config.color;
+                label.style.color = config.color;
+            } else {
+                step.classList.remove('active');
+                circle.style.borderColor = '#ddd';
+                circle.style.transform = 'scale(1)';
+                icon.style.color = '#ddd';
+                label.style.color = 'var(--text-dim)';
+            }
+        });
+        
         if (window.lucide) lucide.createIcons();
-    }
-    if (impactBody) {
-        impactBody.innerText = `Your daily footprint of ${total.toFixed(1)} kg is ${ratio < 1 ? 'under' : 'over'} your sustainable goal. This contributes to a ${tier.level.toLowerCase()} climate risk profile for your local area.`;
     }
     
     if (carbonSnapshot) renderWeeklyChart(carbonSnapshot);
