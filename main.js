@@ -39,16 +39,18 @@ function activitiesOnDay(activities, dateKey) {
 function sumByIcon(acts) {
     let transport = 0;
     let food = 0;
-    let shopping = 0;
     for (const a of acts) {
         const v = Number(a.value) || 0;
         const icon = String(a.icon || '').toLowerCase();
-        if (icon.includes('car')) transport += v;
-        else if (icon.includes('utensil') || icon.includes('coffee')) food += v;
-        else if (icon.includes('shopping')) shopping += v;
-        else food += v;
+        // Include 'activity' (used for transit/bus) and 'car' in transport
+        if (icon.includes('car') || icon.includes('activity') || icon.includes('bus')) {
+            transport += v;
+        } else {
+            // Default to food (includes utensils, coffee, camera/receipts)
+            food += v;
+        }
     }
-    return { transport, food, shopping, total: transport + food + shopping };
+    return { transport, food, total: transport + food };
 }
 
 function exposureTier(ratio) {
@@ -89,7 +91,7 @@ function applyDayInsights() {
 
     const goal = carbonSnapshot ? Number(carbonSnapshot.dailyGoal) || 47 : 47;
     const acts = carbonSnapshot ? activitiesOnDay(carbonSnapshot.activities, selectedDateKey) : [];
-    const { transport, food, shopping, total } = sumByIcon(acts);
+    const { transport, food, total } = sumByIcon(acts);
     const ratio = goal > 0 ? total / goal : 0;
     const tier = exposureTier(ratio);
     const headroom = Math.max(0, goal - total);
@@ -140,10 +142,8 @@ function applyDayInsights() {
 
     const elT = document.getElementById('val-transport');
     const elF = document.getElementById('val-food');
-    const elS = document.getElementById('val-shopping');
     if (elT) elT.innerText = transport.toFixed(1);
     if (elF) elF.innerText = food.toFixed(1);
-    if (elS) elS.innerText = shopping.toFixed(1);
 
     const forestTabTrees = document.getElementById('forest-tab-trees');
     const forestTabBlurb = document.getElementById('forest-tab-blurb');
@@ -207,7 +207,28 @@ window.switchTab = (tabId) => {
 
 window.toggleLogger = () => {
     const modal = document.getElementById('logger-modal');
-    modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+    if (modal.style.display === 'none') {
+        modal.style.display = 'flex';
+        backToLoggerMain(); // Reset to main list when opening
+    } else {
+        modal.style.display = 'none';
+    }
+};
+
+window.showLoggerFood = () => {
+    const main = document.getElementById('logger-view-main');
+    const food = document.getElementById('logger-view-food');
+    if (main) main.style.display = 'none';
+    if (food) food.style.display = 'block';
+    if (window.lucide) lucide.createIcons();
+};
+
+window.backToLoggerMain = () => {
+    const main = document.getElementById('logger-view-main');
+    const food = document.getElementById('logger-view-food');
+    if (main) main.style.display = 'block';
+    if (food) food.style.display = 'none';
+    if (window.lucide) lucide.createIcons();
 };
 
 window.logQuick = async (type) => {
