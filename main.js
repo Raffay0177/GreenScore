@@ -1632,7 +1632,8 @@ function initActivitySwipeFeed(container) {
             wrap._maxSwipe = getMaxSwipeDist(wrap);
             
             const rect = panel.getBoundingClientRect();
-            const startedNearRight = (e.clientX > rect.right - (rect.width * 0.25));
+            // Using a slightly larger 35% zone for better reliability
+            const startedNearRight = (e.clientX > rect.left + (rect.width * 0.65));
             
             activePointerId = e.pointerId;
             startClientX = e.clientX;
@@ -1640,19 +1641,14 @@ function initActivitySwipeFeed(container) {
             startOffset = wrap._swipeOffset ?? 0;
             isHorizontalLock = false;
             
-            if (!startedNearRight) {
-                // If not near right edge, immediately lock to vertical/native scroll
-                isVerticalLock = true;
-                dragging = false;
-            } else {
-                isVerticalLock = false;
-                dragging = true;
-            }
+            // Still allow tracking so we can decide later if it wasn't a clear vertical intent
+            isVerticalLock = !startedNearRight;
+            dragging = true;
         });
 
         panel.addEventListener('pointermove', (e) => {
             if (!dragging || e.pointerId !== activePointerId) return;
-            if (isVerticalLock) return; // ignore if we are scrolling vertically
+            if (isVerticalLock) return; 
 
             const dx = e.clientX - startClientX;
             const dy = e.clientY - startY;
