@@ -22,7 +22,8 @@ const checkJwt = auth({
 });
 
 app.use(cors());
-app.use(express.json());
+// Default 100kb is too small for base64 receipt images; Vercel caps total request ~4.5MB.
+app.use(express.json({ limit: '4mb' }));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
