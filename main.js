@@ -466,12 +466,24 @@ window.openInWindowCamera = async () => {
     if (mainView) mainView.style.display = 'none';
     if (scannerView) scannerView.style.display = 'block';
 
+    // Reset scanner UI
+    const video = document.getElementById('scanner-video');
+    const preview = document.getElementById('scanner-preview');
+    const shutter = document.getElementById('btn-cam-shutter');
+    const logBtn = document.getElementById('btn-cam-log');
+    const controls = document.getElementById('scanner-controls');
+    
+    if (video) video.style.display = 'block';
+    if (preview) preview.style.display = 'none';
+    if (shutter) shutter.style.display = 'flex';
+    if (logBtn) logBtn.style.display = 'none';
+    if (controls) controls.style.display = 'flex';
+
     try {
         const constraints = {
             video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1080 } }
         };
         scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const video = document.getElementById('scanner-video');
         if (video) video.srcObject = scannerStream;
         
         switchScannerMode('food'); // Default mode
@@ -551,44 +563,71 @@ window.setCameraZoom = async (val) => {
 window.captureCameraFrame = async () => {
     const video = document.getElementById('scanner-video');
     const canvas = document.getElementById('scanner-capture-canvas');
+    const preview = document.getElementById('scanner-preview');
+    const shutter = document.getElementById('btn-cam-shutter');
+    const logBtn = document.getElementById('btn-cam-log');
+    const controls = document.getElementById('scanner-controls');
+    const reticle = document.getElementById('scanner-reticle');
+
     if (!video || !canvas) return;
 
     try {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        // Show preview image
         const base64 = canvas.toDataURL('image/jpeg', 0.8);
-        
-        const mode = currentScannerMode;
-        
-        // --- OPTIMISTIC UI: Close scanner and show placeholder ---
-        stopCameraAndReturn();
-        toggleLogger();
-
-        const tempId = 'temp-' + Date.now();
-        const pendingAct = {
-            id: tempId,
-            _id: tempId,
-            label: 'Analyzing Image...',
-            value: 0,
-            status: 'processing',
-            timestamp: new Date().toISOString(),
-            icon: mode === 'barcode' ? 'barcode' : 'camera'
-        };
-
-        // Inject at top
-        if (carbonSnapshot) {
-            carbonSnapshot.activities = [pendingAct, ...(carbonSnapshot.activities || [])];
-            mountActivityFeedFromSnapshot();
+        if (preview) {
+            preview.src = base64;
+            preview.style.display = 'block';
         }
+        
+        // UI transitions
+        if (video) video.style.display = 'none';
+        if (shutter) shutter.style.display = 'none';
+        if (logBtn) logBtn.style.display = 'block';
+        if (controls) controls.style.display = 'none';
+        if (reticle) reticle.style.display = 'none';
 
-        // Kick off background processing
-        handleBackgroundScan(base64, mode, tempId);
-
+        // Note: We don't stop the stream yet so we can resume if cancelled 
+        // (but for simplicity here we keep it running or let log process handle it)
     } catch (err) {
         console.error("Capture failed:", err);
         alert("Failed to capture image.");
     }
+};
+
+window.confirmAndLogCapturedFrame = async () => {
+    const canvas = document.getElementById('scanner-capture-canvas');
+    if (!canvas) return;
+    
+    const base64 = canvas.toDataURL('image/jpeg', 0.8);
+    const mode = currentScannerMode;
+
+    // --- OPTIMISTIC UI: Close scanner and show placeholder ---
+    stopCameraAndReturn();
+    toggleLogger();
+
+    const tempId = 'temp-' + Date.now();
+    const pendingAct = {
+        id: tempId,
+        _id: tempId,
+        label: 'Analyzing Image...',
+        value: 0,
+        status: 'processing',
+        timestamp: new Date().toISOString(),
+        icon: mode === 'barcode' ? 'barcode' : 'camera'
+    };
+
+    // Inject at top
+    if (carbonSnapshot) {
+        carbonSnapshot.activities = [pendingAct, ...(carbonSnapshot.activities || [])];
+        mountActivityFeedFromSnapshot();
+    }
+
+    // Kick off background processing
+    handleBackgroundScan(base64, mode, tempId);
 };
 
 const handleBackgroundScan = async (base64, mode, tempId) => {
