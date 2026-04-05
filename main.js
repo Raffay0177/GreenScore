@@ -1868,6 +1868,7 @@ function selectGarageCar(id, container) {
         if (row) row.classList.add('garage-row-selected');
     }
     updateCarSelectedPill();
+    carNavPop(); // Navigate back to previous view after selecting
 }
 
 function buildGarageRowHtml(car) {
