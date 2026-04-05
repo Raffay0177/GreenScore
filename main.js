@@ -95,7 +95,7 @@ function applyDayInsights() {
     const goal = carbonSnapshot ? Number(carbonSnapshot.dailyGoal) || 47 : 47;
     const acts = carbonSnapshot ? activitiesOnDay(carbonSnapshot.activities, selectedDateKey) : [];
     const { transport, food, total: loggedTotal } = sumByIcon(acts);
-    
+
     // Add daily electricity to the daily total if it's setup
     const elecDaily = (carbonSnapshot && carbonSnapshot.electricityProfile) ? Number(carbonSnapshot.electricityProfile.dailyKgCo2e) || 0 : 0;
     const total = loggedTotal + elecDaily;
@@ -160,7 +160,7 @@ function applyDayInsights() {
     // Forest Tab Refinement (Motivating comparison to 50kg Average American)
     const AVG_AMERICAN_DAILY = 50.0;
     const carbonSaved = Math.max(0, AVG_AMERICAN_DAILY - total);
-    const treesSavedEq = carbonSaved / TREE_KG_PER_YEAR; 
+    const treesSavedEq = carbonSaved / TREE_KG_PER_YEAR;
     const savingsPct = Math.min(100, Math.round((carbonSaved / AVG_AMERICAN_DAILY) * 100));
 
     const forestSavedTrees = document.getElementById('forest-saved-trees');
@@ -169,12 +169,12 @@ function applyDayInsights() {
     const forestBadge = document.getElementById('forest-pct-badge');
     const forestBlurb = document.getElementById('forest-personalized-blurb');
 
-    if (forestSavedTrees) forestSavedTrees.innerText = (treesSavedEq * 10).toFixed(1); 
+    if (forestSavedTrees) forestSavedTrees.innerText = (treesSavedEq * 10).toFixed(1);
     if (forestDiffVal) forestDiffVal.innerText = `-${carbonSaved.toFixed(1)}kg vs avg`;
     if (forestProg) forestProg.style.width = `${Math.max(10, 100 - (total / AVG_AMERICAN_DAILY * 100))}%`;
     if (forestBadge) forestBadge.innerText = `${savingsPct}% LIGHTER`;
     if (forestBlurb) {
-        forestBlurb.innerText = carbonSaved > 5 
+        forestBlurb.innerText = carbonSaved > 5
             ? `Outstanding! You're saving the equivalent of ${treesSavedEq.toFixed(2)} trees today compared to the US average.`
             : `Keep going! Every kg you save helps our planet breathe a little easier today.`;
     }
@@ -194,20 +194,20 @@ function applyDayInsights() {
         };
 
         const config = levels[tier.level] || levels['LOW'];
-        
+
         // Update Main Status
         statusIcon.innerHTML = `<i data-lucide="${config.icon}" style="width: 80px; height: 80px; color: ${config.color}; transition: all 0.5s;"></i>`;
         statusTitle.innerText = config.title;
         statusTitle.style.color = config.color;
         statusDesc.innerText = config.desc;
-        
+
         // Update Gauge Steps
         document.querySelectorAll('.gauge-step').forEach(step => {
             const stepLvl = step.dataset.lvl;
             const circle = step.querySelector('div');
             const icon = step.querySelector('i');
             const label = step.querySelector('span');
-            
+
             if (stepLvl === tier.level) {
                 step.classList.add('active');
                 circle.style.borderColor = config.color;
@@ -222,7 +222,7 @@ function applyDayInsights() {
                 label.style.color = 'var(--text-dim)';
             }
         });
-        
+
         if (window.lucide) lucide.createIcons();
     }
 }
@@ -249,8 +249,8 @@ window.toggleLogger = () => {
     const modal = document.getElementById('logger-modal');
     if (modal.style.display === 'none') {
         modal.style.display = 'flex';
-        backToLoggerMain(); 
-        
+        backToLoggerMain();
+
         // Add Enter listener to input once
         const input = document.getElementById('food-desc-input');
         if (input && !input.dataset.listener) {
@@ -286,7 +286,7 @@ window.showLoggerElectricity = async () => {
     const elec = document.getElementById('logger-view-electricity');
     if (main) main.style.display = 'none';
     if (elec) elec.style.display = 'block';
-    
+
     document.getElementById('elec-setup-form').style.display = 'block';
     document.getElementById('elec-header-back').style.display = 'none'; // Hide redundant header cancel
     document.getElementById('elec-dashboard').style.display = 'none';
@@ -315,13 +315,13 @@ window.showLoggerElectricity = async () => {
 
                 setPicSelectorValue('elec-household-selector', profile.householdSize);
                 setPicSelectorValue('elec-house-selector', profile.houseSizeStr);
-                
+
                 document.getElementById('elec-has-solar').checked = profile.hasSolar;
                 document.getElementById('elec-solar-kw-wrap').style.display = profile.hasSolar ? 'block' : 'none';
                 document.getElementById('elec-solar-kw').value = profile.solarKw || '';
                 document.getElementById('elec-location').value = profile.locationStr || '';
                 document.getElementById('btn-elec-setup').innerText = "Update Tracking";
-                
+
                 // Update title & visibility
                 document.getElementById('elec-header-title').innerText = "Home Energy";
                 document.getElementById('elec-header-back').style.display = 'block';
@@ -329,7 +329,7 @@ window.showLoggerElectricity = async () => {
                 // Show dashboard rather than setup if configured
                 document.getElementById('elec-setup-form').style.display = 'none';
                 document.getElementById('elec-dashboard').style.display = 'block';
-                
+
                 // Render pictorial mix
                 try {
                     const mix = JSON.parse(profile.details || '[]');
@@ -347,13 +347,13 @@ window.renderGridPictorial = (mix, explainer) => {
     const container = document.getElementById('elec-pictorial-viz');
     if (!container) return;
     container.innerHTML = '';
-    
+
     if (!mix || !mix.length) {
         container.innerHTML = '<p class="car-hint">Local grid data pending...</p>';
         return;
     }
 
-    mix.sort((a,b) => b.pct - a.pct).forEach(source => {
+    mix.sort((a, b) => b.pct - a.pct).forEach(source => {
         const row = document.createElement('div');
         row.style.marginBottom = '12px';
         row.innerHTML = `
@@ -411,7 +411,7 @@ window.getElectricityLocation = () => {
         alert("Geolocation is not supported by your browser");
         return;
     }
-    
+
     locInput.value = "Locating...";
     navigator.geolocation.getCurrentPosition((position) => {
         const lat = position.coords.latitude;
@@ -446,7 +446,7 @@ window.submitElectricitySetup = async () => {
             return;
         }
         const token = await auth0Client.getTokenSilently();
-        
+
         const payload = {
             householdSize: document.getElementById('elec-household-size').value,
             homeSize: document.getElementById('elec-house-size').value,
@@ -460,7 +460,7 @@ window.submitElectricitySetup = async () => {
 
         const res = await fetch('/api/electricity/setup', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
@@ -473,14 +473,14 @@ window.submitElectricitySetup = async () => {
             const data = await res.json();
             document.getElementById('elec-setup-done').style.display = 'block';
             document.getElementById('elec-reason-text').innerText = data.shortReason;
-            
+
             // Refresh dashboard data in background
             refreshData();
 
             setTimeout(() => {
                 document.getElementById('elec-setup-done').style.display = 'none';
                 showLoggerElectricity();
-            }, 1500); 
+            }, 1500);
         } else {
             document.getElementById('elec-setup-form').style.display = 'block';
             alert("Failed to setup energy profile.");
@@ -508,7 +508,7 @@ window.logQuick = async (type) => {
         const token = await auth0Client.getTokenSilently();
         const res = await fetch('/api/log', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
@@ -535,7 +535,7 @@ window.logQuick = async (type) => {
 const refreshData = async () => {
     try {
         const token = await auth0Client.getTokenSilently();
-        
+
         // Sync electricity daily footprint seamlessly
         try {
             await fetch('/api/electricity/sync-daily', {
@@ -553,7 +553,7 @@ const refreshData = async () => {
         }
         const data = await response.json();
         renderData(data);
-        
+
         // Also refresh receipt history
         fetchReceipts();
     } catch (err) {
@@ -691,7 +691,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (voiceBtn) {
         voiceBtn.onclick = startFoodVoice;
     }
-    
+
     // Bind barcode upload
     const barcodeInput = document.getElementById('barcode-upload');
     if (barcodeInput) {
@@ -730,7 +730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 window.closeScanner = () => {
     document.getElementById('scanner-modal').style.display = 'none';
-    document.getElementById('receipt-upload').value = ''; 
+    document.getElementById('receipt-upload').value = '';
     document.getElementById('barcode-upload').value = '';
 };
 
@@ -748,7 +748,7 @@ window.openInWindowCamera = async () => {
     const shutter = document.getElementById('btn-cam-shutter');
     const logBtn = document.getElementById('btn-cam-log');
     const controls = document.getElementById('scanner-controls');
-    
+
     if (video) video.style.display = 'block';
     if (preview) preview.style.display = 'none';
     if (shutter) shutter.style.display = 'flex';
@@ -761,7 +761,7 @@ window.openInWindowCamera = async () => {
         };
         scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
         if (video) video.srcObject = scannerStream;
-        
+
         switchScannerMode('food'); // Default mode
         if (window.lucide) lucide.createIcons();
     } catch (err) {
@@ -825,10 +825,10 @@ window.setCameraZoom = async (val) => {
         alert("Zoom not supported on this camera.");
         return;
     }
-    
+
     // Zoom range is usually 1 to some max. Map 0.5x to 1 if needed, or use specific values.
     // For simplicity, we'll try to set zoom directly if it's within range.
-    const zoomVal = Math.max(caps.zoom.min, Math.min(caps.zoom.max, val * 2 || 1)); 
+    const zoomVal = Math.max(caps.zoom.min, Math.min(caps.zoom.max, val * 2 || 1));
     try {
         await track.applyConstraints({ advanced: [{ zoom: zoomVal }] });
     } catch (e) {
@@ -851,14 +851,14 @@ window.captureCameraFrame = async () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
-        
+
         // Show preview image
         const base64 = canvas.toDataURL('image/jpeg', 0.8);
         if (preview) {
             preview.src = base64;
             preview.style.display = 'block';
         }
-        
+
         // UI transitions
         if (video) video.style.display = 'none';
         if (shutter) shutter.style.display = 'none';
@@ -877,7 +877,7 @@ window.captureCameraFrame = async () => {
 window.confirmAndLogCapturedFrame = async () => {
     const canvas = document.getElementById('scanner-capture-canvas');
     if (!canvas) return;
-    
+
     const base64 = canvas.toDataURL('image/jpeg', 0.8);
     const mode = currentScannerMode;
 
@@ -908,18 +908,18 @@ window.confirmAndLogCapturedFrame = async () => {
 
 const handleBackgroundScan = async (base64, mode, tempId) => {
     try {
-        let endpoint = '/api/scan'; 
+        let endpoint = '/api/scan';
         if (mode === 'barcode' || mode === 'label') endpoint = '/api/food/scan-barcode';
         const results = await sendToAI(base64, endpoint);
         const token = await auth0Client.getTokenSilently();
-        
+
         // If it's a smart endpoint like /api/scan, it handles its own logging.
         // If it's a simple estimate endpoint like /api/food/scan-barcode, we log it here.
         if (endpoint === '/api/food/scan-barcode') {
             const item = results;
             await fetch('/api/log', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -989,19 +989,19 @@ window.startFoodVoice = () => {
     foodRecognition = new SpeechRecognition();
     foodRecognition.continuous = false;
     foodRecognition.interimResults = false;
-    
+
     foodRecognition.onstart = () => {
         btn.classList.add('listening');
-        btn.style.color = '#ff3b30'; 
+        btn.style.color = '#ff3b30';
         btn.innerHTML = '<i data-lucide="circle-stop"></i>';
         if (window.lucide) lucide.createIcons();
     };
-    
+
     foodRecognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         document.getElementById('food-desc-input').value = transcript;
     };
-    
+
     foodRecognition.onend = () => {
         btn.classList.remove('listening');
         btn.style.color = 'var(--primary-green)';
@@ -1009,7 +1009,7 @@ window.startFoodVoice = () => {
         if (window.lucide) lucide.createIcons();
         foodRecognition = null;
     };
-    
+
     foodRecognition.onerror = () => {
         foodRecognition = null;
     };
@@ -1021,30 +1021,30 @@ window.submitFoodDescription = async () => {
     const input = document.getElementById('food-desc-input');
     const desc = input.value.trim();
     if (!desc) return;
-    
+
     const originalBtnText = "Log";
     try {
         // Show loading in the input area? 
         input.disabled = true;
         input.placeholder = "Analyzing with AI...";
-        
+
         const token = await auth0Client.getTokenSilently();
         const res = await fetch('/api/food/estimate', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ description: desc })
         });
-        
+
         if (!res.ok) throw new Error("Could not estimate CO2");
         const data = await res.json();
-        
+
         // Log the activity
         const logRes = await fetch('/api/log', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
@@ -1055,7 +1055,7 @@ window.submitFoodDescription = async () => {
                 intensity: data.intensity
             })
         });
-        
+
         if (logRes.ok) {
             toggleLogger();
             refreshData();
@@ -1108,7 +1108,7 @@ const sendToAI = async (base64Data, endpoint = '/api/scan') => {
     const token = await auth0Client.getTokenSilently();
     const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 
+        headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
@@ -1156,7 +1156,7 @@ const confirmAndLog = async () => {
         // we just need to refresh our dashboard data.
         // Or if /api/scan ONLY analyzed, we would save here. 
         // My plan says /api/scan saves it.
-        
+
         await refreshData();
         closeScanner();
         btn.innerText = "Log All";
@@ -1311,7 +1311,7 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
     const isError = act.status === 'error';
     const rowClass = isProcessing ? ' activity-feed-row-processing' : (isError ? ' activity-feed-row-error' : '');
     const enterClass = (opts.enterAnimation ? ' activity-feed-row-enter' : '') + rowClass;
-    
+
     const id = act._id ?? act.id;
     const ic = safeFeedIcon(act.icon);
     const intenColor =
@@ -1319,11 +1319,11 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
     const val = Number(act.value);
     const img = receiptPreviewForActivity(act, receiptPreviews);
     const timeStr = formatActivityFeedTime(act.timestamp);
-    
+
     let thumb = img
         ? `<img class="activity-feed-thumb" src="${escapeAttr(img)}" alt="" />`
         : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
-    
+
     if (isProcessing) {
         thumb = `<div class="activity-feed-thumb-placeholder"><div class="spinner"></div></div>`;
     }
@@ -2064,7 +2064,7 @@ function initCarGarageSwipe(container) {
                     alert(err.message || 'Could not delete vehicle');
                     fetchGarageCars()
                         .then(() => renderGarageList())
-                        .catch(() => {});
+                        .catch(() => { });
                 });
             };
 
@@ -2437,8 +2437,8 @@ function haversineDistanceKm(lat1, lng1, lat2, lng2) {
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat / 2) ** 2 +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng / 2) ** 2;
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -2552,14 +2552,14 @@ async function submitCarTripLog() {
         // If public transport, redirect to Google Maps with transit directions
         if (isPublicTransport && destInfo.endLatLng) {
             // Prefer labels (names) for better display on Google Maps
-            const originStr = destInfo.startLabel && destInfo.startLabel !== 'Current location' 
-                ? destInfo.startLabel 
+            const originStr = destInfo.startLabel && destInfo.startLabel !== 'Current location'
+                ? destInfo.startLabel
                 : (destInfo.startLatLng ? `${destInfo.startLatLng.lat},${destInfo.startLatLng.lng}` : 'current location');
-            
+
             const destStr = destInfo.endLabel || `${destInfo.endLatLng.lat},${destInfo.endLatLng.lng}`;
-            
+
             const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=transit&transit_mode=bus`;
-            
+
             // Redirect to maps in same tab
             window.location.href = mapsUrl;
         }
@@ -2604,7 +2604,7 @@ function renderData(data) {
     } catch (e) {
         console.error("Weekly chart error:", e);
     }
-    
+
     try {
         applyDayInsights();
     } catch (e) {
@@ -2629,7 +2629,7 @@ function renderInvoice(data) {
 
     if (elDebt) elDebt.innerText = (Number(data.currentEmissions) || 0).toFixed(1);
     if (elTrees) elTrees.innerText = Math.ceil((Number(data.currentEmissions) || 0) / TREE_KG_PER_YEAR);
-    
+
     if (elDate) {
         if (data.activities && data.activities.length > 0) {
             // Find earliest activity
@@ -2681,7 +2681,7 @@ function renderWeeklyChart(data) {
         const acts = activitiesOnDay(data.activities, day);
         const { total: loggedTotal } = sumByIcon(acts);
         const total = (acts.length > 0) ? loggedTotal + elecDaily : 0;
-        
+
         const heightPct = Math.max(8, Math.min(100, (total / (goal * 1.3)) * 100));
         // Use a more robust way to get the single character day label
         const dateObj = new Date(day + 'T12:00:00');
