@@ -88,10 +88,11 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const prompt = `You are a sustainability expert for 'GreenScore'. Analyze these habits and provide 3 personalized, informative AI Tips.
         Rules:
-        1. If user is new, give 3 generic high-impact facts for an average American.
-        2. If they have high beef logs, include a specific fact about the emissions of raising one cow.
-        3. If they have many rush-hour car trips, suggest taking the bus or carpooling during peak times.
-        4. Be supportive and factual.
+        1. Keep each tip VERY SHORT and MEANINGFUL (max 2 sentences). No essays.
+        2. If user is new, give 3 generic high-impact facts for an average American.
+        3. If they have high beef logs, include a specific fact about the emissions of raising one cow.
+        4. If they have many rush-hour car trips, suggest taking the bus or carpooling during peak times.
+        5. Be supportive and factual.
         Habit Summary: ${habitSummary}
         
         Return ONLY valid JSON (no markdown):

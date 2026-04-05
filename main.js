@@ -129,7 +129,8 @@ function applyDayInsights() {
 
     const treeVal = document.getElementById('main-tree-val');
     if (treeVal) treeVal.innerText = treesEq.toFixed(1);
-    animateRing('main-ring-2', Math.min(100, (treesEq / 2.5) * 100));
+    // Live Headroom Slider: (Headroom / Goal) %
+    animateRing('main-ring-2', Math.min(100, (headroom / goal) * 100));
 
     const forestPill = document.getElementById('forest-legacy-pill');
     if (forestPill) {
@@ -146,53 +147,50 @@ function applyDayInsights() {
         riskPill.className = 'status-pill ' + tier.pillClass;
         riskPill.innerText = `${tier.headline} (${total.toFixed(1)} / ${goal} kg)`;
     }
-    animateRing('main-ring-3', Math.min(100, ratio * 90));
+    // Live Exposure Slider: (Usage / Goal) % -- capped at 100 for visual health
+    animateRing('main-ring-3', Math.min(100, ratio * 100));
 
     const elT = document.getElementById('val-transport');
     const elF = document.getElementById('val-food');
+    const elE = document.getElementById('val-electricity');
     if (elT) elT.innerText = transport.toFixed(1);
     if (elF) elF.innerText = food.toFixed(1);
+    if (elE) elE.innerText = elecDaily.toFixed(1);
 
-    const forestTabTrees = document.getElementById('forest-tab-trees');
-    const forestTabBlurb = document.getElementById('forest-tab-blurb');
-    if (forestTabTrees) forestTabTrees.innerText = treesEq.toFixed(1);
-    if (forestTabBlurb) {
-        const label = new Date(selectedDateKey + 'T12:00:00').toLocaleDateString(undefined, {
-            weekday: 'long',
-            month: 'short',
-            day: 'numeric'
-        });
-        forestTabBlurb.innerText =
-            `On ${label} you logged ${total.toFixed(1)} kg (budget ${goal} kg). ` +
-            (treesEq > 0
-                ? `Staying under budget is roughly ${treesEq.toFixed(1)}x one tree's typical yearly CO2 uptake (~${TREE_KG_PER_YEAR} kg/yr).`
-                : 'No budget headroom that day; every kg under your goal next time adds tree-equivalent credit.');
+    // Forest Tab Refinement (Motivating comparison to 50kg Average American)
+    const AVG_AMERICAN_DAILY = 50.0;
+    const carbonSaved = Math.max(0, AVG_AMERICAN_DAILY - total);
+    const treesSavedEq = carbonSaved / TREE_KG_PER_YEAR; 
+    const savingsPct = Math.min(100, Math.round((carbonSaved / AVG_AMERICAN_DAILY) * 100));
+
+    const forestSavedTrees = document.getElementById('forest-saved-trees');
+    const forestDiffVal = document.getElementById('forest-diff-val');
+    const forestProg = document.getElementById('forest-progress-bar');
+    const forestBadge = document.getElementById('forest-pct-badge');
+    const forestBlurb = document.getElementById('forest-personalized-blurb');
+
+    if (forestSavedTrees) forestSavedTrees.innerText = (treesSavedEq * 10).toFixed(1); 
+    if (forestDiffVal) forestDiffVal.innerText = `-${carbonSaved.toFixed(1)}kg vs avg`;
+    if (forestProg) forestProg.style.width = `${Math.max(10, 100 - (total / AVG_AMERICAN_DAILY * 100))}%`;
+    if (forestBadge) forestBadge.innerText = `${savingsPct}% LIGHTER`;
+    if (forestBlurb) {
+        forestBlurb.innerText = carbonSaved > 5 
+            ? `Outstanding! You're saving the equivalent of ${treesSavedEq.toFixed(2)} trees today compared to the US average.`
+            : `Keep going! Every kg you save helps our planet breathe a little easier today.`;
     }
 
+    // Impact Tab Dynamic Feedback
     const impactBanner = document.getElementById('impact-banner-text');
     const impactBody = document.getElementById('impact-body-text');
     if (impactBanner) {
-        impactBanner.innerHTML = `<i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: var(--accent-orange);"></i>
-                ${tier.headline} • ${total.toFixed(1)} / ${goal} kg`;
+        impactBanner.innerHTML = `<i data-lucide="${ratio > 1 ? 'alert-octagon' : 'check-circle'}" style="width: 16px; height: 16px; color: ${tier.color};"></i> ${tier.headline}`;
         if (window.lucide) lucide.createIcons();
     }
     if (impactBody) {
-        const label = new Date(selectedDateKey + 'T12:00:00').toLocaleDateString(undefined, {
-            weekday: 'long',
-            month: 'short',
-            day: 'numeric'
-        });
-        impactBody.innerHTML =
-            `For <strong>${label}</strong> you logged <strong>${acts.length}</strong> entr${acts.length === 1 ? 'y' : 'ies'} ` +
-            `totaling <strong>${total.toFixed(1)} kg</strong> CO₂e vs a <strong>${goal} kg</strong> daily budget ` +
-            `(<strong>${(ratio * 100).toFixed(0)}%</strong> of goal). ` +
-            `${highCount ? `<strong>${highCount}</strong> high-impact item${highCount === 1 ? '' : 's'}. ` : ''}` +
-            (ratio >= 1
-                ? 'That day exceeded your target—small swaps on food and travel add up fast.'
-                : ratio >= 0.75
-                  ? 'You are close to the limit; lighter choices tomorrow keep exposure lower.'
-                  : 'Keep logging to track how choices stack up over the week.');
+        impactBody.innerText = `Your daily footprint of ${total.toFixed(1)} kg is ${ratio < 1 ? 'under' : 'over'} your sustainable goal. This contributes to a ${tier.level.toLowerCase()} climate risk profile for your local area.`;
     }
+    
+    if (carbonSnapshot) renderWeeklyChart(carbonSnapshot);
 }
 
 window.switchTab = (tabId) => {
@@ -2520,4 +2518,40 @@ function animateRing(id, percent) {
     const radius = ring.r.baseVal.value;
     const circumference = 2 * Math.PI * radius;
     ring.style.strokeDashoffset = circumference - (percent / 100) * circumference;
+}
+
+function renderWeeklyChart(data) {
+    const container = document.getElementById('stats-weekly-chart');
+    if (!container || !data || !data.activities) return;
+
+    const days = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        days.push(localDateKey(d));
+    }
+
+    const goal = Number(data.dailyGoal) || 47;
+    const elecDaily = (data.electricityProfile) ? Number(data.electricityProfile.dailyKgCo2e) || 0 : 0;
+
+    let html = '';
+    days.forEach(day => {
+        const acts = activitiesOnDay(data.activities, day);
+        const { total: loggedTotal } = sumByIcon(acts);
+        const total = (acts.length > 0) ? loggedTotal + elecDaily : 0;
+        
+        // Height calculation: goal is 70% height
+        const heightPct = total === 0 ? 5 : Math.min(100, (total / (goal * 1.4)) * 100);
+        const dayLabel = new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })[0];
+        const barColor = total > goal ? 'var(--accent-orange)' : 'var(--primary-green)';
+
+        html += `
+            <div class="chart-bar" style="height: 100%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;">
+                <span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">${dayLabel}</span>
+                <div style="height: ${heightPct}%; width:100%; background: ${total > 0 ? barColor : '#eee'}; border-radius: 8px; transition: height 0.5s ease; position:absolute; bottom:0;"></div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
 }
