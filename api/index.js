@@ -85,7 +85,7 @@ app.post('/api/scan', checkJwt, async (req, res) => {
         throw new Error("Gemini API Key is missing. Please add it to your .env file.");
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const base64Data = image.split(',')[1];
 
     const prompt = `
