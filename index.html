@@ -228,7 +228,6 @@
         <div class="car-log-sheet card">
             <div class="car-log-handle" aria-hidden="true"></div>
             <div class="car-log-topbar">
-                <button type="button" class="car-log-back" id="car-log-back" style="display:none;">Back</button>
                 <h2 class="clash car-log-title" id="car-log-title">Log a trip</h2>
             </div>
             <p class="car-log-sub" id="car-log-sub">Select a vehicle, add one, then log your trip.</p>
@@ -260,12 +259,13 @@
             </div>
 
             <div id="car-view-select" class="car-log-view" hidden>
-                <p class="car-hint">Swipe left on a row to remove it from your garage.</p>
+                <p class="car-hint" id="car-select-swipe-hint">Swipe left on a row to remove it from your garage.</p>
                 <div id="car-garage-list" class="car-garage-list"></div>
             </div>
 
             <div id="car-view-add" class="car-log-view" hidden>
                 <p class="car-hint">Choose how to add a vehicle.</p>
+                <p class="car-add-empty-note">No car added</p>
                 <div class="car-add-split">
                     <button type="button" class="car-choice-btn" id="car-btn-scan">
                         <i data-lucide="camera"></i>
@@ -287,9 +287,16 @@
                 <input type="text" id="car-manual-make" class="car-field-input" placeholder="Toyota" maxlength="80" />
                 <label class="car-field-label">Model</label>
                 <input type="text" id="car-manual-model" class="car-field-input" placeholder="RAV4" maxlength="80" />
-                <label class="car-field-label">Est. kg CO₂ / trip</label>
-                <input type="number" id="car-manual-kg" class="car-field-input" min="0.1" max="50" step="0.1" value="2.4" />
+                <p class="car-manual-estimate-note">We’ll estimate CO₂ per trip from make and model.</p>
                 <button type="button" class="car-btn-solid" id="car-manual-continue">Continue</button>
+            </div>
+
+            <div id="car-view-manual-busy" class="car-log-view" hidden>
+                <div class="car-scan-busy-inner">
+                    <div class="spinner" style="width:44px;height:44px;border:3px solid var(--border-light);border-top-color:var(--primary-green);border-radius:50%;margin:0 auto 16px;"></div>
+                    <p class="clash">Estimating emissions…</p>
+                    <p class="car-hint">Using your make and model.</p>
+                </div>
             </div>
 
             <div id="car-view-scan-busy" class="car-log-view" hidden>
@@ -326,7 +333,10 @@
 
             <input type="file" id="car-scan-input" accept="image/*" capture="environment" style="display:none;" />
 
-            <button type="button" class="car-log-close-bar" onclick="closeCarLogModal()">Close</button>
+            <div class="car-log-footer">
+                <button type="button" class="car-log-back-foot" id="car-log-back" hidden>Back</button>
+                <button type="button" class="car-log-close-foot" onclick="closeCarLogModal()">Close</button>
+            </div>
         </div>
     </div>
 

@@ -212,6 +212,41 @@ Rules: estimatedKgPerTrip is approximate kg CO2 for a typical short commute trip
   }
 });
 
+app.post('/api/cars/estimate-emissions', checkJwt, async (req, res) => {
+  try {
+    if (!genAI || !process.env.GOOGLE_API_KEY) {
+      return res.status(503).json({ error: 'Emission estimates require GOOGLE_API_KEY.' });
+    }
+    const make = String(req.body?.make || '').trim();
+    const modelName = String(req.body?.model || '').trim();
+    if (!make || !modelName) {
+      return res.status(400).json({ error: 'make and model are required' });
+    }
+
+    const aiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const prompt = `For a carbon-tracking app, estimate kg CO2e for ONE typical short personal car trip (about 5–10 miles / 8–16 km, mixed city/highway) for this vehicle:
+Make: ${make}
+Model: ${modelName}
+
+Return ONLY valid JSON (no markdown):
+{"estimatedKgPerTrip": 2.4, "shortReason": "one short sentence citing fuel type/size if known"}
+Use ~1.0–2.0 for BEV/small hybrid, ~2–4 for average ICE sedan, ~4–9 for large SUV/truck. Be conservative.`;
+
+    const result = await aiModel.generateContent(prompt);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    const kg = Math.max(0.1, Math.min(50, Number(parsed.estimatedKgPerTrip) || 2.4));
+    res.json({
+      estimatedKgPerTrip: kg,
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
+    });
+  } catch (err) {
+    console.error('Car estimate error:', err);
+    res.status(500).json({ error: err.message || 'Could not estimate emissions' });
+  }
+});
+
 // POST Log Activity (Protected)
 app.post('/api/log', checkJwt, async (req, res) => {
   const userId = req.auth.payload.sub;

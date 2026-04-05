@@ -524,28 +524,14 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 }
 
 .car-log-topbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin-bottom: 6px;
-}
-
-.car-log-back {
-  border: none;
-  background: var(--bg-main);
-  color: var(--accent-blue);
-  font-weight: 700;
-  font-size: 15px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .car-log-title {
   font-size: 20px;
   margin: 0;
-  flex: 1;
+  text-align: center;
+  width: 100%;
 }
 
 .car-log-sub {
@@ -658,6 +644,43 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   padding: 28px 16px;
   color: var(--text-dim);
   font-size: 14px;
+}
+
+.car-garage-empty-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 12px 28px;
+}
+
+.car-garage-empty-wrap .car-btn-solid {
+  max-width: 220px;
+  margin-top: 0;
+}
+
+.car-garage-empty-hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+  opacity: 0.55;
+  text-align: center;
+}
+
+.car-add-empty-note {
+  margin: -6px 0 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+  opacity: 0.5;
+  text-align: center;
+}
+
+.car-manual-estimate-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  opacity: 0.75;
+  line-height: 1.35;
 }
 
 .car-add-split {
@@ -818,15 +841,39 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   color: var(--text-main);
 }
 
-.car-log-close-bar {
-  width: 100%;
-  margin-top: 18px;
-  padding: 14px;
+.car-log-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 4px;
+}
+
+.car-log-back-foot {
+  flex: 1;
+  padding: 14px 16px;
   border: none;
-  background: transparent;
-  color: var(--text-dim);
-  font-weight: 600;
-  font-size: 14px;
+  border-radius: 100px;
+  background: var(--bg-main);
+  color: var(--accent-blue);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.car-log-back-foot[hidden] {
+  display: none !important;
+}
+
+.car-log-close-foot {
+  flex: 1;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 100px;
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
   cursor: pointer;
   font-family: inherit;
 }

@@ -1018,6 +1018,7 @@ const CAR_VIEW_IDS = {
     select: 'car-view-select',
     add: 'car-view-add',
     manual: 'car-view-manual',
+    manualBusy: 'car-view-manual-busy',
     scanBusy: 'car-view-scan-busy',
     review: 'car-view-review',
     destination: 'car-view-destination'
@@ -1030,7 +1031,7 @@ function carSyncViews() {
         if (el) el.hidden = k !== key;
     }
     const back = document.getElementById('car-log-back');
-    if (back) back.style.display = key === 'main' ? 'none' : 'inline-block';
+    if (back) back.hidden = carViewStack.length <= 1;
     if (window.lucide) lucide.createIcons();
 }
 
@@ -1142,11 +1143,19 @@ function buildGarageRowHtml(car) {
 
 function renderGarageList() {
     const list = document.getElementById('car-garage-list');
+    const swipeHint = document.getElementById('car-select-swipe-hint');
     if (!list) return;
     if (!carLogGarageCache.length) {
-        list.innerHTML = '<div class="car-garage-empty">No vehicles yet. Use Add → Scan or Manual.</div>';
+        if (swipeHint) swipeHint.hidden = true;
+        list.innerHTML = `
+            <div class="car-garage-empty-wrap">
+                <button type="button" class="car-btn-solid" id="car-garage-empty-add">Add</button>
+                <p class="car-garage-empty-hint">No car added</p>
+            </div>`;
+        if (window.lucide) lucide.createIcons();
         return;
     }
+    if (swipeHint) swipeHint.hidden = false;
     list.innerHTML = carLogGarageCache.map((c) => buildGarageRowHtml(c)).join('');
     if (window.lucide) lucide.createIcons();
     initCarGarageSwipe(list);
@@ -1180,7 +1189,7 @@ function renderCarReviewForPending(showFine) {
         if (mm) html += `<p>${escapeHtml(mm)}</p>`;
     }
     html += `<p>Est. <strong>${Number(s.estimatedKgPerTrip).toFixed(1)} kg</strong> CO₂e per typical trip.</p>`;
-    if (p.shortReason && !p.fromManual) {
+    if (p.shortReason) {
         html += `<p style="color:var(--text-dim);font-size:13px;">${escapeHtml(p.shortReason)}</p>`;
     }
     if (p.confidence != null && !p.fromManual) {
@@ -1405,26 +1414,30 @@ function initCarLogUI() {
     if (modal) {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeCarLogModal();
-        });
-        modal.querySelectorAll('[data-car-nav]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            const nav = btn.getAttribute('data-car-nav');
-            if (nav === 'select') {
-                try {
-                    await fetchGarageCars();
-                } catch (_) {
-                    carLogGarageCache = [];
-                }
-                renderGarageList();
-                carNavPush('select');
-            } else if (nav === 'add') {
+            if (e.target.closest('#car-garage-empty-add')) {
+                e.preventDefault();
                 carNavPush('add');
-            } else if (nav === 'destination') {
-                carNavPush('destination');
-            } else if (nav === 'log') {
-                await submitCarTripLog();
             }
         });
+        modal.querySelectorAll('[data-car-nav]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const nav = btn.getAttribute('data-car-nav');
+                if (nav === 'select') {
+                    try {
+                        await fetchGarageCars();
+                    } catch (_) {
+                        carLogGarageCache = [];
+                    }
+                    renderGarageList();
+                    carNavPush('select');
+                } else if (nav === 'add') {
+                    carNavPush('add');
+                } else if (nav === 'destination') {
+                    carNavPush('destination');
+                } else if (nav === 'log') {
+                    await submitCarTripLog();
+                }
+            });
         });
     }
 
@@ -1436,26 +1449,52 @@ function initCarLogUI() {
         document.getElementById('car-manual-label').value = '';
         document.getElementById('car-manual-make').value = '';
         document.getElementById('car-manual-model').value = '';
-        document.getElementById('car-manual-kg').value = '2.4';
         carNavPush('manual');
     });
 
-    document.getElementById('car-manual-continue')?.addEventListener('click', () => {
-        const label = document.getElementById('car-manual-label').value.trim();
-        if (!label) {
-            alert('Please enter a display name.');
-            return;
-        }
+    document.getElementById('car-manual-continue')?.addEventListener('click', async () => {
         const make = document.getElementById('car-manual-make').value.trim();
         const model = document.getElementById('car-manual-model').value.trim();
-        const kg = Math.max(0.1, Math.min(50, Number(document.getElementById('car-manual-kg').value) || 2.4));
-        carLogState.pendingMatch = {
-            fromManual: true,
-            matchedCarId: null,
-            suggested: { label, make, model, estimatedKgPerTrip: kg }
-        };
-        renderCarReviewForPending(false);
-        carNavPush('review');
+        if (!make || !model) {
+            alert('Enter make and model so we can estimate emissions.');
+            return;
+        }
+        let label = document.getElementById('car-manual-label').value.trim();
+        if (!label) label = `${make} ${model}`.trim();
+        try {
+            if (!(await auth0Client.isAuthenticated())) return;
+        } catch (_) {
+            return;
+        }
+        carNavPush('manualBusy');
+        try {
+            const token = await auth0Client.getTokenSilently();
+            const res = await fetch('/api/cars/estimate-emissions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ make, model })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Could not estimate emissions');
+            const kg = Math.max(0.1, Math.min(50, Number(data.estimatedKgPerTrip) || 2.4));
+            carLogState.pendingMatch = {
+                fromManual: true,
+                matchedCarId: null,
+                suggested: { label, make, model, estimatedKgPerTrip: kg },
+                shortReason: data.shortReason || ''
+            };
+            carViewStack.pop();
+            carViewStack.pop();
+            carNavPush('review');
+            renderCarReviewForPending(false);
+        } catch (err) {
+            alert(err.message || 'Estimate failed');
+            carViewStack.pop();
+            carSyncViews();
+        }
     });
 
     document.getElementById('car-review-fine')?.addEventListener('click', () => {
