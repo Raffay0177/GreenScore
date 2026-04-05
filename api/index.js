@@ -39,13 +39,13 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
       metrics = await UserMetric.create({ userId });
     }
 
-    const activities = await Activity.find({ userId }).sort({ timestamp: -1 }).limit(10);
+    const activities = await Activity.find({ userId }).sort({ timestamp: -1 }).limit(400);
 
     res.json({
       dailyGoal: metrics.dailyGoal,
       currentEmissions: metrics.currentEmissions,
       streak: metrics.streak,
-      activities: activities,
+      activities,
       aiTips: [
         { id: 101, text: "Your recent activities show a high carbon footprint. Try swapping beef for plant-based alternatives." },
         { id: 102, text: "Commuting by public transport could save up to 30% on your daily emissions." }

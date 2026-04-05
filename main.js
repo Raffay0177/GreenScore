@@ -17,6 +17,175 @@ const configureClient = async () => {
     });
 };
 
+/** Last /api/carbon payload; used with calendar selection for per-day metrics */
+let carbonSnapshot = null;
+/** Local calendar day `YYYY-MM-DD` for dashboard breakdown */
+let selectedDateKey = null;
+
+const TREE_KG_PER_YEAR = 21;
+
+function localDateKey(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function activitiesOnDay(activities, dateKey) {
+    return (activities || []).filter((a) => localDateKey(new Date(a.timestamp)) === dateKey);
+}
+
+function sumByIcon(acts) {
+    let transport = 0;
+    let food = 0;
+    let shopping = 0;
+    for (const a of acts) {
+        const v = Number(a.value) || 0;
+        const icon = String(a.icon || '').toLowerCase();
+        if (icon.includes('car')) transport += v;
+        else if (icon.includes('utensil') || icon.includes('coffee')) food += v;
+        else if (icon.includes('shopping')) shopping += v;
+        else food += v;
+    }
+    return { transport, food, shopping, total: transport + food + shopping };
+}
+
+function exposureTier(ratio) {
+    if (ratio < 0.45) {
+        return {
+            level: 'LOW',
+            color: '#2e7d32',
+            pillClass: 'status-good',
+            headline: 'Daily footprint: light'
+        };
+    }
+    if (ratio < 0.75) {
+        return {
+            level: 'MOD',
+            color: '#ef6c00',
+            pillClass: 'status-good',
+            headline: 'Daily footprint: moderate'
+        };
+    }
+    if (ratio < 1.05) {
+        return {
+            level: 'HIGH',
+            color: '#c62828',
+            pillClass: 'status-danger',
+            headline: 'Daily footprint: high vs goal'
+        };
+    }
+    return {
+        level: 'SEVERE',
+        color: '#b71c1c',
+        pillClass: 'status-danger',
+        headline: 'Above daily carbon budget'
+    };
+}
+
+function applyDayInsights() {
+    if (!selectedDateKey) return;
+
+    const goal = carbonSnapshot ? Number(carbonSnapshot.dailyGoal) || 47 : 47;
+    const acts = carbonSnapshot ? activitiesOnDay(carbonSnapshot.activities, selectedDateKey) : [];
+    const { transport, food, shopping, total } = sumByIcon(acts);
+    const ratio = goal > 0 ? total / goal : 0;
+    const tier = exposureTier(ratio);
+    const headroom = Math.max(0, goal - total);
+    const treesEq = headroom / TREE_KG_PER_YEAR;
+    const highCount = acts.filter((a) => a.intensity === 'High').length;
+
+    const co2El = document.getElementById('main-co2-val');
+    if (co2El) co2El.innerText = total.toFixed(1);
+    animateRing('main-ring-1', Math.min(150, (total / goal) * 100));
+
+    const carbonPill = document.getElementById('carbon-day-pill');
+    if (carbonPill) {
+        if (ratio < 0.5) {
+            carbonPill.className = 'status-pill status-good';
+            carbonPill.innerText = 'UNDER BUDGET';
+        } else if (ratio < 0.85) {
+            carbonPill.className = 'status-pill status-good';
+            carbonPill.innerText = 'ON TRACK';
+        } else if (ratio < 1.1) {
+            carbonPill.className = 'status-pill status-good';
+            carbonPill.innerText = 'NEAR LIMIT';
+        } else {
+            carbonPill.className = 'status-pill status-danger';
+            carbonPill.innerText = 'OVER GOAL';
+        }
+    }
+
+    const treeVal = document.getElementById('main-tree-val');
+    if (treeVal) treeVal.innerText = treesEq.toFixed(1);
+    animateRing('main-ring-2', Math.min(100, (treesEq / 2.5) * 100));
+
+    const forestPill = document.getElementById('forest-legacy-pill');
+    if (forestPill) {
+        forestPill.className = 'status-pill status-good';
+        forestPill.innerText = treesEq > 0.05 ? 'HEADROOM VS GOAL' : 'AT OR OVER GOAL';
+    }
+
+    const riskVal = document.getElementById('risk-level-val');
+    const riskWrap = document.getElementById('risk-level-wrap');
+    const riskPill = document.getElementById('risk-exposure-pill');
+    if (riskVal) riskVal.innerText = tier.level;
+    if (riskWrap) riskWrap.style.color = tier.color;
+    if (riskPill) {
+        riskPill.className = 'status-pill ' + tier.pillClass;
+        riskPill.innerText = `${tier.headline} (${total.toFixed(1)} / ${goal} kg)`;
+    }
+    animateRing('main-ring-3', Math.min(100, ratio * 90));
+
+    const elT = document.getElementById('val-transport');
+    const elF = document.getElementById('val-food');
+    const elS = document.getElementById('val-shopping');
+    if (elT) elT.innerText = transport.toFixed(1);
+    if (elF) elF.innerText = food.toFixed(1);
+    if (elS) elS.innerText = shopping.toFixed(1);
+
+    const forestTabTrees = document.getElementById('forest-tab-trees');
+    const forestTabBlurb = document.getElementById('forest-tab-blurb');
+    if (forestTabTrees) forestTabTrees.innerText = treesEq.toFixed(1);
+    if (forestTabBlurb) {
+        const label = new Date(selectedDateKey + 'T12:00:00').toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric'
+        });
+        forestTabBlurb.innerText =
+            `On ${label} you logged ${total.toFixed(1)} kg (budget ${goal} kg). ` +
+            (treesEq > 0
+                ? `Staying under budget is roughly ${treesEq.toFixed(1)}x one tree's typical yearly CO2 uptake (~${TREE_KG_PER_YEAR} kg/yr).`
+                : 'No budget headroom that day; every kg under your goal next time adds tree-equivalent credit.');
+    }
+
+    const impactBanner = document.getElementById('impact-banner-text');
+    const impactBody = document.getElementById('impact-body-text');
+    if (impactBanner) {
+        impactBanner.innerHTML = `<i data-lucide="alert-triangle" style="width: 16px; height: 16px; color: var(--accent-orange);"></i>
+                ${tier.headline} • ${total.toFixed(1)} / ${goal} kg`;
+        if (window.lucide) lucide.createIcons();
+    }
+    if (impactBody) {
+        const label = new Date(selectedDateKey + 'T12:00:00').toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric'
+        });
+        impactBody.innerHTML =
+            `For <strong>${label}</strong> you logged <strong>${acts.length}</strong> entr${acts.length === 1 ? 'y' : 'ies'} ` +
+            `totaling <strong>${total.toFixed(1)} kg</strong> CO₂e vs a <strong>${goal} kg</strong> daily budget ` +
+            `(<strong>${(ratio * 100).toFixed(0)}%</strong> of goal). ` +
+            `${highCount ? `<strong>${highCount}</strong> high-impact item${highCount === 1 ? '' : 's'}. ` : ''}` +
+            (ratio >= 1
+                ? 'That day exceeded your target—small swaps on food and travel add up fast.'
+                : ratio >= 0.75
+                  ? 'You are close to the limit; lighter choices tomorrow keep exposure lower.'
+                  : 'Keep logging to track how choices stack up over the week.');
+    }
+}
+
 window.switchTab = (tabId) => {
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.style.display = 'none';
@@ -196,18 +365,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date(now);
             date.setDate(now.getDate() - i);
+            const key = localDateKey(date);
             const item = document.createElement('div');
             item.className = 'date-item' + (i === 0 ? ' active' : '');
+            item.dataset.dateKey = key;
             item.innerHTML = `<span class="day">${date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span class="num">${date.getDate()}</span>`;
             item.onclick = () => {
                 document.querySelectorAll('.date-item').forEach(d => d.classList.remove('active'));
                 item.classList.add('active');
+                selectedDateKey = key;
+                applyDayInsights();
                 item.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             };
             frag.appendChild(item);
         }
         picker.innerHTML = '';
         picker.appendChild(frag);
+        selectedDateKey = localDateKey(new Date());
+        applyDayInsights();
         setTimeout(() => {
             const today = picker.lastElementChild;
             if (today) today.scrollIntoView({ behavior: 'auto', inline: 'center' });
@@ -359,19 +534,14 @@ const confirmAndLog = async () => {
 document.getElementById('receipt-upload').addEventListener('change', handleImageUpload);
 
 function renderData(data) {
-    // Guard against undefined/error response from API
     if (!data || typeof data.currentEmissions === 'undefined') return;
 
-    const co2Val = document.getElementById('main-co2-val');
-    if (co2Val) co2Val.innerText = data.currentEmissions.toFixed(1);
-
-    animateRing('main-ring-1', (data.currentEmissions / data.dailyGoal) * 100);
-    animateRing('main-ring-2', 65);
-    animateRing('main-ring-3', 85);
+    carbonSnapshot = data;
 
     const feed = document.getElementById('activity-feed');
-    if (feed && data.activities) {
-        feed.innerHTML = data.activities.map(act => `
+    const feedActs = (data.activities || []).slice(0, 10);
+    if (feed && feedActs.length) {
+        feed.innerHTML = feedActs.map(act => `
             <div class="card" style="display:flex; align-items:center; gap:16px; padding:16px; margin-bottom:12px;">
                 <div style="color: var(--primary-green);"><i data-lucide="${act.icon || 'activity'}"></i></div>
                 <div>
@@ -382,6 +552,9 @@ function renderData(data) {
             </div>
         `).join('');
         if (window.lucide) lucide.createIcons();
+    } else if (feed) {
+        feed.innerHTML =
+            '<div style="text-align:center; padding:24px; color:var(--text-dim); font-size:14px;">No activity yet. Log food, travel, or a receipt to get started.</div>';
     }
 
     const tips = document.getElementById('ai-tips');
@@ -390,6 +563,8 @@ function renderData(data) {
             <div class="tip-card"><span class="tag">AI TIP</span><p>${tip.text}</p></div>
         `).join('');
     }
+
+    applyDayInsights();
 }
 
 function animateRing(id, percent) {
