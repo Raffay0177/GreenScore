@@ -1622,69 +1622,130 @@ function initActivitySwipeFeed(container) {
         let isHorizontalLock = false;
         let isVerticalLock = false;
 
+        // ── USE TOUCH EVENTS (not pointer events) ──────────────────────────
+        // On mobile, the browser fires `pointercancel` when it decides to scroll,
+        // which snaps the card back. Touch events are never cancelled mid-gesture
+        // by the browser, giving us reliable control.
+
+        panel.addEventListener('touchstart', (e) => {
+            if (wrap.classList.contains('activity-feed-row-removing')) return;
+            if (e.touches.length !== 1) return;
+
+            wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
+            closeAllOtherRows();
+            wrap._maxSwipe = getMaxSwipeDist(wrap);
+
+            const touch = e.touches[0];
+            const rect = panel.getBoundingClientRect();
+            const threshold = rect.right - (rect.width * 0.4);
+            const startedNearRight = touch.clientX > threshold;
+
+            startClientX = touch.clientX;
+            startY = touch.clientY;
+            startOffset = wrap._swipeOffset ?? 0;
+            isHorizontalLock = false;
+            isVerticalLock = !startedNearRight;
+            dragging = true;
+        }, { passive: true });
+
+        panel.addEventListener('touchmove', (e) => {
+            if (!dragging) return;
+            if (e.touches.length !== 1) return;
+
+            const touch = e.touches[0];
+            const dx = touch.clientX - startClientX;
+            const dy = touch.clientY - startY;
+
+            if (isVerticalLock) return;
+
+            if (!isHorizontalLock) {
+                // If movement is more vertical than horizontal, surrender to native scroll
+                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+                    isVerticalLock = true;
+                    dragging = false;
+                    return;
+                }
+                // Commit to horizontal swipe once we have clear horizontal intent
+                if (Math.abs(dx) > 8) {
+                    isHorizontalLock = true;
+                    wrap.classList.add('activity-swipe-dragging');
+                } else {
+                    return; // Not enough movement yet to decide direction
+                }
+            }
+
+            // We are in a horizontal swipe — block the browser from scrolling
+            e.preventDefault();
+
+            const next = startOffset + dx;
+            const boundedNext = Math.min(0, next); // never swipe right past origin
+            applyActivityPanelTransform(wrap, panel, boundedNext, { animated: false, allowOvershoot: true });
+        }, { passive: false }); // passive:false so preventDefault() works
+
+        const onTouchEnd = () => {
+            if (!dragging) return;
+            dragging = false;
+            wrap.classList.remove('activity-swipe-dragging');
+            const m = maxSwipe();
+            const o = wrap._swipeOffset ?? 0;
+            const ratio = m > 0 ? Math.abs(o) / m : 0;
+            if (ratio >= SWIPE_DELETE_THRESHOLD) {
+                applyActivityPanelTransform(wrap, panel, -m, {
+                    animated: true,
+                    onDone: () => void runExitDelete()
+                });
+            } else {
+                applyActivityPanelTransform(wrap, panel, 0, { animated: true });
+            }
+        };
+
+        panel.addEventListener('touchend', onTouchEnd, { passive: true });
+        panel.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+        // Keep mouse support for desktop (pointer events work fine there)
         panel.addEventListener('pointerdown', (e) => {
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (e.pointerType !== 'mouse' || e.button !== 0) return;
             if (wrap.classList.contains('activity-feed-row-removing')) return;
             wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
             closeAllOtherRows();
             wrap._maxSwipe = getMaxSwipeDist(wrap);
-            
-            const rect = panel.getBoundingClientRect();
-            // Be more generous: 40% from right edge allows easier activation
-            const threshold = rect.right - (rect.width * 0.4);
-            const startedNearRight = (e.clientX > threshold);
-            
             activePointerId = e.pointerId;
             startClientX = e.clientX;
             startY = e.clientY;
             startOffset = wrap._swipeOffset ?? 0;
             isHorizontalLock = false;
-            
-            // Only lock if we definitely DID NOT start in the swipe zone
-            isVerticalLock = !startedNearRight;
+            isVerticalLock = false; // mouse: always allow swipe
             dragging = true;
         });
 
         panel.addEventListener('pointermove', (e) => {
+            if (e.pointerType !== 'mouse') return;
             if (!dragging || e.pointerId !== activePointerId) return;
-            if (isVerticalLock) return; 
-
             const dx = e.clientX - startClientX;
-            const dy = e.clientY - startY;
-
-            if (!isHorizontalLock) {
-                // If it's more vertical than horizontal, or if we moved vertically enough
-                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
-                    isVerticalLock = true;
-                    dragging = false; 
-                    try { panel.releasePointerCapture(e.pointerId); } catch(_) {}
-                    return;
-                }
-                
-                // If we moved horizontally enough AND we started in the right zone
-                if (Math.abs(dx) > 8) {
-                    isHorizontalLock = true;
-                    wrap.classList.add('activity-swipe-dragging');
-                    try { panel.setPointerCapture(e.pointerId); } catch (_) {}
-                } else {
-                    return; 
-                }
-            }
-
-            // Once locked horizontal, prevent any other browser behavior
-            if (e.cancelable) e.preventDefault();
-
             const next = startOffset + dx;
-            // Prevent swiping RIGHT beyond origin
-            const boundedNext = Math.min(0, next);
-            applyActivityPanelTransform(wrap, panel, boundedNext, { animated: false, allowOvershoot: true });
+            applyActivityPanelTransform(wrap, panel, Math.min(0, next), { animated: false, allowOvershoot: true });
         });
 
-        panel.addEventListener('pointerup', finishDrag);
-        panel.addEventListener('pointercancel', finishDrag);
-        panel.addEventListener('lostpointercapture', (e) => {
-            if (dragging && e.pointerId === activePointerId) finishDrag(e);
-        });
+        const mouseFinish = (e) => {
+            if (e.pointerType !== 'mouse') return;
+            if (!dragging || e.pointerId !== activePointerId) return;
+            dragging = false;
+            activePointerId = null;
+            wrap.classList.remove('activity-swipe-dragging');
+            const m = maxSwipe();
+            const o = wrap._swipeOffset ?? 0;
+            const ratio = m > 0 ? Math.abs(o) / m : 0;
+            if (ratio >= SWIPE_DELETE_THRESHOLD) {
+                applyActivityPanelTransform(wrap, panel, -m, {
+                    animated: true,
+                    onDone: () => void runExitDelete()
+                });
+            } else {
+                applyActivityPanelTransform(wrap, panel, 0, { animated: true });
+            }
+        };
+        panel.addEventListener('pointerup', mouseFinish);
+        panel.addEventListener('pointercancel', mouseFinish);
     });
 }
 
