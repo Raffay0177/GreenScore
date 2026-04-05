@@ -94,7 +94,12 @@ function applyDayInsights() {
 
     const goal = carbonSnapshot ? Number(carbonSnapshot.dailyGoal) || 47 : 47;
     const acts = carbonSnapshot ? activitiesOnDay(carbonSnapshot.activities, selectedDateKey) : [];
-    const { transport, food, total } = sumByIcon(acts);
+    const { transport, food, total: loggedTotal } = sumByIcon(acts);
+    
+    // Add daily electricity to the daily total if it's setup
+    const elecDaily = (carbonSnapshot && carbonSnapshot.electricityProfile) ? Number(carbonSnapshot.electricityProfile.dailyKgCo2e) || 0 : 0;
+    const total = loggedTotal + elecDaily;
+
     const ratio = goal > 0 ? total / goal : 0;
     const tier = exposureTier(ratio);
     const headroom = Math.max(0, goal - total);
@@ -2498,18 +2503,9 @@ function renderData(data) {
 
     const tips = document.getElementById('ai-tips');
     if (tips && data.aiTips) {
-        let tiplist = [...data.aiTips];
-        if (data.electricityProfile) {
-            const hSize = data.electricityProfile.householdSize || 1;
-            const avg = (data.electricityProfile.dailyKgCo2e / hSize).toFixed(1);
-            tiplist.unshift({
-                isElec: true,
-                text: `Your household averages <strong>${avg} kg</strong> CO2e per person daily based on your profile.`
-            });
-        }
-        tips.innerHTML = tiplist.map(tip => `
+        tips.innerHTML = data.aiTips.map(tip => `
             <div class="tip-card">
-                <span class="tag" style="${tip.isElec ? 'background:var(--accent-blue);' : ''}">${tip.isElec ? 'ELECTRICITY' : 'AI TIP'}</span>
+                <span class="tag">AI TIP</span>
                 <p>${tip.text}</p>
             </div>
         `).join('');

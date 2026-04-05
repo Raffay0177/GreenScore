@@ -5,7 +5,9 @@ const userMetricSchema = new mongoose.Schema({
   currentEmissions: { type: Number, default: 0, min: 0 },
   dailyGoal: { type: Number, default: 47, min: 1 },
   streak: { type: Number, default: 0, min: 0 },
-  lastLogged: { type: Date }
+  lastLogged: { type: Date },
+  cachedInsights: { type: Array, default: [] },
+  lastInsightGen: { type: Date, default: null }
 });
 
 export default mongoose.model('UserMetric', userMetricSchema);

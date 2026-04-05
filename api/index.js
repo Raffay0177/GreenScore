@@ -60,6 +60,64 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
 
     const electricityProfile = await UserElectricityProfile.findOne({ userId }).lean();
     
+    // --- ADAPTIVE AI INSIGHTS ---
+    let aiTips = metrics.cachedInsights || [];
+    const oneDay = 24 * 60 * 60 * 1000;
+    const isStale = !metrics.lastInsightGen || (new Date() - new Date(metrics.lastInsightGen)) > oneDay;
+
+    if (isStale || aiTips.length === 0) {
+      try {
+        const recentActs = activities.slice(0, 50);
+        const isNewUser = activities.length < 5;
+        
+        let habitSummary = "";
+        if (isNewUser) {
+          habitSummary = "New user with very few logs. Provide high-impact generic sustainability facts popular in the US.";
+        } else {
+          const beefCount = recentActs.filter(a => /beef|steak|burger|cow/i.test(a.label)).length;
+          const peakCarTrips = recentActs.filter(a => {
+            const hour = new Date(a.timestamp).getHours();
+            const isPeak = (hour >= 8 && hour <= 10) || (hour >= 16 && hour <= 18);
+            return isPeak && /car/i.test(a.icon);
+          }).length;
+          
+          habitSummary = `User habits: ${beefCount} beef-related meals, ${peakCarTrips} car trips during rush hours (8-10am, 4-6pm). 
+          Electricity: ${electricityProfile ? `${electricityProfile.householdSize} people, solar: ${electricityProfile.hasSolar}` : 'Not setup'}.`;
+        }
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const prompt = `You are a sustainability expert for 'GreenScore'. Analyze these habits and provide 3 personalized, informative AI Tips.
+        Rules:
+        1. If user is new, give 3 generic high-impact facts for an average American.
+        2. If they have high beef logs, include a specific fact about the emissions of raising one cow.
+        3. If they have many rush-hour car trips, suggest taking the bus or carpooling during peak times.
+        4. Be supportive and factual.
+        Habit Summary: ${habitSummary}
+        
+        Return ONLY valid JSON (no markdown):
+        [{"id": 1, "text": "Tip 1..."}, {"id": 2, "text": "Tip 2..."}, {"id": 3, "text": "Tip 3..."}]`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        const cleanJson = responseText.replace(/```json|```/g, "").trim();
+        aiTips = JSON.parse(cleanJson);
+        
+        // Cache them
+        metrics.cachedInsights = aiTips;
+        metrics.lastInsightGen = new Date();
+        await metrics.save();
+      } catch (genErr) {
+        console.error("Failed to generate adaptive insights:", genErr);
+        // Fallback to existing or empty if failed
+        if (!aiTips.length) {
+          aiTips = [
+            { id: 1, text: "Try meat-free Mondays to reduce your footprint." },
+            { id: 2, text: "Walking or cycling for short trips is the best way to save CO2." }
+          ];
+        }
+      }
+    }
+
     res.json({
       dailyGoal: metrics.dailyGoal,
       currentEmissions: metrics.currentEmissions,
@@ -67,10 +125,7 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
       activities,
       receiptPreviews,
       electricityProfile,
-      aiTips: [
-        { id: 101, text: "Your recent activities show a high carbon footprint. Try swapping beef for plant-based alternatives." },
-        { id: 102, text: "Commuting by public transport could save up to 30% on your daily emissions." }
-      ]
+      aiTips
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
