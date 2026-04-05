@@ -324,11 +324,11 @@ app.post('/api/food/scan-barcode', checkJwt, async (req, res) => {
     const responseText = result.response.text();
     const cleanJson = responseText.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
-    
+
     const label = String(parsed.label || 'Scanned Product').slice(0, 100);
 
     if (parsed.error) {
-        return res.status(422).json({ error: parsed.error });
+      return res.status(422).json({ error: parsed.error });
     }
 
     res.json({
@@ -365,7 +365,7 @@ app.post('/api/log', checkJwt, async (req, res) => {
       carId: carObjectId,
       temporaryCar: tempFlag
     });
-    
+
     // Update Metrics
     await UserMetric.findOneAndUpdate(
       { userId },
@@ -390,7 +390,7 @@ app.post('/api/scan', checkJwt, async (req, res) => {
 
   try {
     if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-        throw new Error("Gemini API Key is missing. Please add it to your .env file.");
+      throw new Error("Gemini API Key is missing. Please add it to your .env file.");
     }
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -429,7 +429,7 @@ app.post('/api/scan', checkJwt, async (req, res) => {
           ? it.category.trim().slice(0, 80)
           : 'General'
     }));
-    
+
     let totalCO2 = Math.max(0, Number(parsedData.totalCO2));
     if (!Number.isFinite(totalCO2)) {
       totalCO2 = items.reduce((sum, row) => sum + row.value, 0);
@@ -509,12 +509,12 @@ app.get('/api/health', (req, res) => {
 app.post('/api/electricity/setup', checkJwt, async (req, res) => {
   const userId = req.auth.payload.sub;
   const { householdSize, homeSize, hasSolar, solarKw, locationStr } = req.body;
-  
+
   try {
     if (!process.env.GOOGLE_API_KEY) {
       return res.status(503).json({ error: 'Electricity estimates require GOOGLE_API_KEY.' });
     }
-    
+
     const hSize = Math.max(1, Number(householdSize) || 1);
     const sizeStr = String(homeSize || 'Medium');
     const solar = Number(solarKw) || 0;
@@ -531,19 +531,6 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
     1. Determine the average daily electricity consumption (kWh) for a household of this size (${sizeStr}) in their location.
     2. Determine the specific grid energy mix (coal/gas/renewables percentage) for ${loc} to find the emissions per kWh.
     3. If Solar is installed, calculate the average daily generation (kWh) for a ${solar}kW system in ${loc} and subtract it from consumption. (Net can't be negative).
-    4. Calculate the final net daily kg CO2e.
-    
-    Return ONLY valid JSON (no markdown):
-    {
-      "dailyKgCo2e": 12.5,
-      "shortReason": "one short sentence explaining the calc based on location fuel mix and solar offset",
-      "distributionDetails": "A brief 2-sentence summary of the local grid makeup (e.g., 40% coal, 60% renewables) and how solar offsets their draw."
-    }`;
-
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    const cleanJson = responseText.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
     
     const dailyKgCo2e = Math.max(0, Number(parsed.dailyKgCo2e) || 10);
     
@@ -552,7 +539,8 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
       {
         householdSize: hSize,
         houseSizeStr: sizeStr,
-        details: String(parsed.distributionDetails || parsed.shortReason || ''),
+        details: JSON.stringify(parsed.gridMix || []),
+        solarExplainer: String(parsed.solarExplanation || ''),
         hasSolar: Boolean(hasSolar),
         solarKw: solar,
         locationStr: loc,
@@ -562,7 +550,12 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
       { new: true, upsert: true }
     );
     
-    res.json({ profile, shortReason: parsed.shortReason, distributionDetails: String(parsed.distributionDetails || parsed.shortReason || '') });
+    res.json({ 
+      profile, 
+      shortReason: parsed.shortReason, 
+      gridMix: parsed.gridMix || [],
+      solarExplanation: parsed.solarExplanation || ''
+    });
   } catch (err) {
     console.error('Electricity setup error:', err);
     res.status(500).json({ error: err.message });

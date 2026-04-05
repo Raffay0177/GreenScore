@@ -798,6 +798,67 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   color: var(--text-dim);
 }
 
+/* Pictorial Selector Styles */
+.pictorial-selector {
+    display: flex;
+    gap: 10px;
+}
+
+.pic-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--text-dim);
+}
+
+.pic-btn i {
+    width: 24px;
+    height: 24px;
+    transition: transform 0.2s;
+}
+
+.pic-btn span {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+}
+
+.pic-btn:active {
+    transform: scale(0.95);
+}
+
+.pic-btn.active {
+    border-color: var(--primary-green);
+    background: rgba(46, 204, 113, 0.08);
+    color: var(--primary-green);
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.1);
+}
+
+.pic-btn.active i {
+    transform: translateY(-2px);
+    color: var(--primary-green);
+}
+
+.car-field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+
 .car-field-label {
   display: block;
   font-size: 12px;

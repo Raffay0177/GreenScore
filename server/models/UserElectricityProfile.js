@@ -9,6 +9,7 @@ const userElectricityProfileSchema = new mongoose.Schema({
   locationStr: { type: String, default: 'Unknown' },
   dailyKgCo2e: { type: Number, required: true },
   details: { type: String, default: '' },
+  solarExplainer: { type: String, default: '' },
   lastAutoLoggedDate: { type: Date, required: true }
 });
 

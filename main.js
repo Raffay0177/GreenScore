@@ -251,6 +251,7 @@ window.showLoggerElectricity = async () => {
     if (elec) elec.style.display = 'block';
     
     document.getElementById('elec-setup-form').style.display = 'block';
+    document.getElementById('elec-header-back').style.display = 'none'; // Hide redundant header cancel
     document.getElementById('elec-dashboard').style.display = 'none';
     document.getElementById('elec-details-view').style.display = 'none';
     document.getElementById('elec-setup-busy').style.display = 'none';
@@ -265,9 +266,18 @@ window.showLoggerElectricity = async () => {
         if (res.ok) {
             const profile = await res.json();
             if (profile) {
-                document.getElementById('elec-household-size').value = profile.householdSize;
-                const sizeOpt = Array.from(document.getElementById('elec-house-size').options).find(o => o.value === profile.houseSizeStr);
-                if (sizeOpt) sizeOpt.selected = true;
+                const setPicSelectorValue = (selectorId, val) => {
+                    const selector = document.getElementById(selectorId);
+                    if (!selector) return;
+                    const hiddenInput = selector.querySelector('input[type="hidden"]');
+                    if (hiddenInput) hiddenInput.value = val;
+                    selector.querySelectorAll('.pic-btn').forEach(btn => {
+                        btn.classList.toggle('active', String(btn.dataset.val) === String(val));
+                    });
+                };
+
+                setPicSelectorValue('elec-household-selector', profile.householdSize);
+                setPicSelectorValue('elec-house-selector', profile.houseSizeStr);
                 
                 document.getElementById('elec-has-solar').checked = profile.hasSolar;
                 document.getElementById('elec-solar-kw-wrap').style.display = profile.hasSolar ? 'block' : 'none';
@@ -275,24 +285,67 @@ window.showLoggerElectricity = async () => {
                 document.getElementById('elec-location').value = profile.locationStr || '';
                 document.getElementById('btn-elec-setup').innerText = "Update Tracking";
                 
+                // Update title & visibility
+                document.getElementById('elec-header-title').innerText = "Home Energy";
+                document.getElementById('elec-header-back').style.display = 'block';
+
                 // Show dashboard rather than setup if configured
                 document.getElementById('elec-setup-form').style.display = 'none';
                 document.getElementById('elec-dashboard').style.display = 'block';
                 
-                // Prefill details
-                document.getElementById('elec-details-text').innerText = `${profile.dailyKgCo2e} kg CO2e Daily\n\n${profile.details || ''}`;
+                // Render pictorial mix
+                try {
+                    const mix = JSON.parse(profile.details || '[]');
+                    renderGridPictorial(mix, profile.solarExplainer);
+                } catch (e) {
+                    document.getElementById('elec-details-text').innerText = `${profile.dailyKgCo2e} kg CO2e Daily\n\n${profile.details || ''}`;
+                }
             }
         }
     } catch (e) { console.error("Error fetching electricity profile", e); }
     if (window.lucide) lucide.createIcons();
 };
 
+window.renderGridPictorial = (mix, explainer) => {
+    const container = document.getElementById('elec-pictorial-viz');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    if (!mix || !mix.length) {
+        container.innerHTML = '<p class="car-hint">Local grid data pending...</p>';
+        return;
+    }
+
+    mix.sort((a,b) => b.pct - a.pct).forEach(source => {
+        const row = document.createElement('div');
+        row.style.marginBottom = '12px';
+        row.innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:4px; color:var(--text-main);">
+                <span>${source.source}</span>
+                <span>${source.pct}%</span>
+            </div>
+            <div style="width:100%; height:8px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden;">
+                <div style="width:${source.pct}%; height:100%; background:${source.color || 'var(--primary-green)'}; border-radius:10px;"></div>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+
+    if (explainer) {
+        document.getElementById('elec-details-text').innerText = explainer;
+    }
+};
+
 window.viewElectricityEmissions = () => {
+    document.getElementById('elec-header-title').innerText = "Energy Breakdown";
+    document.getElementById('elec-header-back').onclick = showElecDashboard;
     document.getElementById('elec-dashboard').style.display = 'none';
     document.getElementById('elec-details-view').style.display = 'block';
 };
 
 window.editElectricityEmissions = () => {
+    document.getElementById('elec-header-title').innerText = "Update Setup";
+    document.getElementById('elec-header-back').style.display = 'none';
     document.getElementById('elec-dashboard').style.display = 'none';
     document.getElementById('elec-setup-form').style.display = 'block';
 };
@@ -307,6 +360,9 @@ window.cancelElectricityForm = () => {
 };
 
 window.showElecDashboard = () => {
+    document.getElementById('elec-header-title').innerText = "Home Energy";
+    document.getElementById('elec-header-back').style.display = 'block';
+    document.getElementById('elec-header-back').onclick = backToLoggerMain;
     document.getElementById('elec-details-view').style.display = 'none';
     document.getElementById('elec-setup-form').style.display = 'none';
     document.getElementById('elec-dashboard').style.display = 'block';
@@ -600,6 +656,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (barcodeInput) {
         barcodeInput.addEventListener('change', (e) => handleImageUpload(e, '/api/food/scan-barcode'));
     }
+
+    // Init pictorial selectors
+    const initPictorialSelectors = () => {
+        document.querySelectorAll('.pictorial-selector').forEach(selector => {
+            const hiddenInput = selector.querySelector('input[type="hidden"]');
+            const buttons = selector.querySelectorAll('.pic-btn');
+            buttons.forEach(btn => {
+                btn.onclick = () => {
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    if (hiddenInput) hiddenInput.value = btn.dataset.val;
+                };
+            });
+        });
+    };
+    initPictorialSelectors();
 
     const swipeContainer = document.getElementById('dash-swipe');
     const dots = document.querySelectorAll('.dot');
