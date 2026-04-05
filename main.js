@@ -69,6 +69,10 @@ const refreshData = async () => {
         const response = await fetch('/api/carbon', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `Server error ${response.status}`);
+        }
         const data = await response.json();
         renderData(data);
         
@@ -293,6 +297,13 @@ const sendToAI = async (base64Data) => {
 
 let currentScannedData = null;
 const renderScannedItems = (data, base64) => {
+    // Guard: if the API returned an error object, don't crash
+    if (!data || !data.items || !Array.isArray(data.items)) {
+        console.error("Invalid scan response:", data);
+        alert(data?.error || "Failed to analyze receipt. The AI could not parse any items.");
+        closeScanner();
+        return;
+    }
     currentScannedData = { ...data, image: base64 };
     const list = document.getElementById('scanned-items-list');
     document.getElementById('scanner-loading').style.display = 'none';
@@ -332,6 +343,9 @@ const confirmAndLog = async () => {
 document.getElementById('receipt-upload').addEventListener('change', handleImageUpload);
 
 function renderData(data) {
+    // Guard against undefined/error response from API
+    if (!data || typeof data.currentEmissions === 'undefined') return;
+
     const co2Val = document.getElementById('main-co2-val');
     if (co2Val) co2Val.innerText = data.currentEmissions.toFixed(1);
 
