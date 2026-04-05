@@ -436,10 +436,14 @@ window.submitElectricitySetup = async () => {
             const data = await res.json();
             document.getElementById('elec-setup-done').style.display = 'block';
             document.getElementById('elec-reason-text').innerText = data.shortReason;
+            
+            // Refresh dashboard data in background
+            refreshData();
+
             setTimeout(() => {
-                toggleLogger();
-                refreshData();
-            }, 5000); 
+                document.getElementById('elec-setup-done').style.display = 'none';
+                showLoggerElectricity();
+            }, 1500); 
         } else {
             document.getElementById('elec-setup-form').style.display = 'block';
             alert("Failed to setup energy profile.");
