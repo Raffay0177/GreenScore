@@ -273,6 +273,7 @@ window.showLoggerElectricity = async () => {
                 document.getElementById('elec-solar-kw-wrap').style.display = profile.hasSolar ? 'block' : 'none';
                 document.getElementById('elec-solar-kw').value = profile.solarKw || '';
                 document.getElementById('elec-location').value = profile.locationStr || '';
+                document.getElementById('btn-elec-setup').innerText = "Update Tracking";
                 
                 // Show dashboard rather than setup if configured
                 document.getElementById('elec-setup-form').style.display = 'none';
@@ -294,6 +295,15 @@ window.viewElectricityEmissions = () => {
 window.editElectricityEmissions = () => {
     document.getElementById('elec-dashboard').style.display = 'none';
     document.getElementById('elec-setup-form').style.display = 'block';
+};
+
+window.cancelElectricityForm = () => {
+    const btn = document.getElementById('btn-elec-setup');
+    if (btn && btn.innerText.includes('Update Tracking')) {
+        showElecDashboard();
+    } else {
+        backToLoggerMain();
+    }
 };
 
 window.showElecDashboard = () => {
