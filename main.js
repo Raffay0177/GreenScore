@@ -1171,8 +1171,7 @@ document.getElementById('receipt-upload').addEventListener('change', (e) => hand
 /** Min / cap for how far left the row can be dragged (px); actual value scales with card width */
 const ACTIVITY_SWIPE_MIN = 120;
 const ACTIVITY_SWIPE_MAX_CAP = 180;
-/** Release at or past this fraction of max drag → delete (no tap) */
-const SWIPE_DELETE_THRESHOLD = 0.7;
+const SWIPE_DELETE_THRESHOLD = 0.4;
 /** Shared easing for delete collapse + list FLIP (smooth deceleration) */
 const ACTIVITY_DELETE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const ACTIVITY_DELETE_COLLAPSE_MS = 420;
@@ -1663,7 +1662,7 @@ function initActivitySwipeFeed(container) {
                 }
                 
                 // If we moved horizontally enough AND we started in the right zone
-                if (Math.abs(dx) > 10) {
+                if (Math.abs(dx) > 8) {
                     isHorizontalLock = true;
                     wrap.classList.add('activity-swipe-dragging');
                     try { panel.setPointerCapture(e.pointerId); } catch (_) {}
@@ -1671,6 +1670,9 @@ function initActivitySwipeFeed(container) {
                     return; 
                 }
             }
+
+            // Once locked horizontal, prevent any other browser behavior
+            if (e.cancelable) e.preventDefault();
 
             const next = startOffset + dx;
             // Prevent swiping RIGHT beyond origin
