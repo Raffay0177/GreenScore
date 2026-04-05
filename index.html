@@ -206,9 +206,64 @@
             <!-- Main Logger List -->
             <div id="logger-view-main">
                 <h2 class="clash" style="margin-bottom: 24px;">Log Activity</h2>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;">
                     <div class="card mini-card" style="border: 2px solid var(--primary-green); margin:0;" onclick="showLoggerFood()"><i data-lucide="utensils"></i> Food</div>
                     <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="openCarLogModal()"><i data-lucide="car"></i> Car</div>
+                    <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="showLoggerElectricity()"><i data-lucide="zap"></i> Home</div>
+                </div>
+            </div>
+
+            <!-- Electricity Sub-menu -->
+            <div id="logger-view-electricity" style="display:none;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                   <button onclick="backToLoggerMain()" style="background:none; border:none; color:var(--accent-blue); padding:0; cursor:pointer;"><i data-lucide="arrow-left" style="width:20px; height:20px;"></i></button>
+                   <h2 class="clash" style="margin:0; font-size: 20px;">Home Energy</h2>
+                </div>
+
+                <div id="elec-setup-form">
+                    <p class="car-hint" style="margin-bottom: 20px;">Set up your home profile once to automatically track your daily energy footprint.</p>
+                    
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <label class="car-field-label">Household Size</label>
+                            <input type="number" id="elec-household-size" class="car-field-input" placeholder="People" min="1" value="1">
+                        </div>
+                        <div>
+                            <label class="car-field-label">Home Size (sq ft)</label>
+                            <input type="number" id="elec-house-size" class="car-field-input" placeholder="e.g. 2000" min="100">
+                        </div>
+                    </div>
+                    
+                    <label class="car-field-label" style="display:flex; align-items:center; gap: 8px; margin-top: 12px;">
+                        <input type="checkbox" id="elec-has-solar" style="width:18px; height:18px; accent-color: var(--primary-green);" onchange="document.getElementById('elec-solar-kw-wrap').style.display = this.checked ? 'block' : 'none'">
+                        I have solar panels installed
+                    </label>
+
+                    <div id="elec-solar-kw-wrap" style="display:none; margin-top: 12px;">
+                        <label class="car-field-label">Solar System Size (kW)</label>
+                        <input type="number" id="elec-solar-kw" class="car-field-input" placeholder="e.g. 5.5" step="0.1" min="0">
+                    </div>
+
+                    <label class="car-field-label" style="margin-top: 20px;">Location (For grid mix)</label>
+                    <div style="display:flex; gap: 8px;">
+                        <input type="text" id="elec-location" class="car-field-input" placeholder="City, State" readonly style="margin-bottom: 0;">
+                        <button onclick="getElectricityLocation()" class="dest-inline-btn" style="white-space: nowrap; background: rgba(0,122,255,0.1); color: var(--accent-blue); padding: 0 16px;"><i data-lucide="crosshair" style="width:16px; margin-right:4px;"></i>Get loc</button>
+                    </div>
+
+                    <button id="btn-elec-setup" onclick="submitElectricitySetup()" style="width:100%; padding:14px; background:var(--primary-green); color:white; border:none; border-radius:100px; font-weight:700; margin-top:24px; font-size:16px; cursor:pointer;">Save & Enable Tracking</button>
+                </div>
+                
+                <div id="elec-setup-busy" style="display:none; text-align:center; padding: 40px 0;">
+                    <div class="spinner" style="margin: 0 auto 16px; width:40px; height:40px; border-width:4px;"></div>
+                    <p class="clash">Analyzing local grid mix...</p>
+                    <p class="car-hint">Using location data to determine fuel sources.</p>
+                </div>
+
+                <div id="elec-setup-done" style="display:none; text-align:center; padding: 40px 0;">
+                    <i data-lucide="check-circle" style="color:var(--primary-green); width:64px; height:64px; margin-bottom: 16px;"></i>
+                    <p class="clash" style="font-size:24px; color:var(--primary-green);">Setup Complete!</p>
+                    <p class="car-hint" id="elec-reason-text" style="margin-bottom:24px;"></p>
+                    <p style="font-size:14px; font-weight:600; color:var(--text-main);">Your daily electricity will now automatically track.</p>
                 </div>
             </div>
 

@@ -237,9 +237,127 @@ window.showLoggerFood = () => {
 window.backToLoggerMain = () => {
     const main = document.getElementById('logger-view-main');
     const food = document.getElementById('logger-view-food');
+    const elec = document.getElementById('logger-view-electricity');
     if (main) main.style.display = 'block';
     if (food) food.style.display = 'none';
+    if (elec) elec.style.display = 'none';
     if (window.lucide) lucide.createIcons();
+};
+
+window.showLoggerElectricity = async () => {
+    const main = document.getElementById('logger-view-main');
+    const elec = document.getElementById('logger-view-electricity');
+    if (main) main.style.display = 'none';
+    if (elec) elec.style.display = 'block';
+    
+    document.getElementById('elec-setup-form').style.display = 'block';
+    document.getElementById('elec-setup-busy').style.display = 'none';
+    document.getElementById('elec-setup-done').style.display = 'none';
+
+    try {
+        if (!(await auth0Client.isAuthenticated())) return;
+        const token = await auth0Client.getTokenSilently();
+        const res = await fetch('/api/electricity/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const profile = await res.json();
+            if (profile) {
+                document.getElementById('elec-household-size').value = profile.householdSize;
+                document.getElementById('elec-house-size').value = profile.houseSizeSqft || '';
+                document.getElementById('elec-has-solar').checked = profile.hasSolar;
+                document.getElementById('elec-solar-kw-wrap').style.display = profile.hasSolar ? 'block' : 'none';
+                document.getElementById('elec-solar-kw').value = profile.solarKw || '';
+                document.getElementById('elec-location').value = profile.locationStr || '';
+                document.getElementById('btn-elec-setup').innerText = "Update Tracking";
+            }
+        }
+    } catch (e) { console.error("Error fetching electricity profile", e); }
+    if (window.lucide) lucide.createIcons();
+};
+
+window.getElectricityLocation = () => {
+    const locInput = document.getElementById('elec-location');
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+    }
+    
+    locInput.value = "Locating...";
+    navigator.geolocation.getCurrentPosition((position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        if (window.google && google.maps && google.maps.Geocoder) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    let city = '';
+                    let state = '';
+                    results[0].address_components.forEach(comp => {
+                        if (comp.types.includes('locality')) city = comp.long_name;
+                        if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
+                    });
+                    locInput.value = [city, state].filter(Boolean).join(', ') || results[0].formatted_address;
+                } else {
+                    locInput.value = `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+                }
+            });
+        } else {
+            locInput.value = `Lat: ${lat.toFixed(2)}, Lng: ${lng.toFixed(2)}`;
+        }
+    }, () => {
+        locInput.value = "Permission denied or error";
+    });
+};
+
+window.submitElectricitySetup = async () => {
+    try {
+        if (!(await auth0Client.isAuthenticated())) {
+            alert("Please log in first.");
+            return;
+        }
+        const token = await auth0Client.getTokenSilently();
+        
+        const payload = {
+            householdSize: document.getElementById('elec-household-size').value,
+            houseSizeSqft: document.getElementById('elec-house-size').value,
+            hasSolar: document.getElementById('elec-has-solar').checked,
+            solarKw: document.getElementById('elec-solar-kw').value,
+            locationStr: document.getElementById('elec-location').value
+        };
+
+        document.getElementById('elec-setup-form').style.display = 'none';
+        document.getElementById('elec-setup-busy').style.display = 'block';
+
+        const res = await fetch('/api/electricity/setup', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        document.getElementById('elec-setup-busy').style.display = 'none';
+
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('elec-setup-done').style.display = 'block';
+            document.getElementById('elec-reason-text').innerText = data.shortReason;
+            setTimeout(() => {
+                toggleLogger();
+                refreshData();
+            }, 5000); 
+        } else {
+            document.getElementById('elec-setup-form').style.display = 'block';
+            alert("Failed to setup energy profile.");
+        }
+    } catch (e) {
+        console.error(e);
+        document.getElementById('elec-setup-busy').style.display = 'none';
+        document.getElementById('elec-setup-form').style.display = 'block';
+        alert("Error during setup");
+    }
 };
 
 window.logQuick = async (type) => {
@@ -284,6 +402,15 @@ window.logQuick = async (type) => {
 const refreshData = async () => {
     try {
         const token = await auth0Client.getTokenSilently();
+        
+        // Sync electricity daily footprint seamlessly
+        try {
+            await fetch('/api/electricity/sync-daily', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (e) { console.error("Sync error", e); }
+
         const response = await fetch('/api/carbon', {
             headers: { 'Authorization': `Bearer ${token}` }
         });

@@ -7,6 +7,7 @@ import Activity from '../server/models/Activity.js';
 import UserMetric from '../server/models/UserMetric.js';
 import Receipt from '../server/models/Receipt.js';
 import UserCar from '../server/models/UserCar.js';
+import UserElectricityProfile from '../server/models/UserElectricityProfile.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 function isValidObjectId(id) {
@@ -501,6 +502,132 @@ app.delete('/api/receipts/:id', checkJwt, async (req, res) => {
 // Add a test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'GreenScore API is healthy' });
+});
+
+// --- ELECTRICITY TRACKING ---
+
+app.post('/api/electricity/setup', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  const { householdSize, houseSizeSqft, hasSolar, solarKw, locationStr } = req.body;
+  
+  try {
+    if (!process.env.GOOGLE_API_KEY) {
+      return res.status(503).json({ error: 'Electricity estimates require GOOGLE_API_KEY.' });
+    }
+    
+    const hSize = Math.max(1, Number(householdSize) || 1);
+    const sqft = Number(houseSizeSqft) || 1500;
+    const solar = Number(solarKw) || 0;
+    const loc = String(locationStr || 'United States');
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const prompt = `For a carbon-tracking app, calculate the daily electricity carbon footprint (in kg CO2e) for a household:
+    Household Size: ${hSize} people
+    House Size: ${sqft} sq ft
+    Location: ${loc}
+    Solar Installed: ${hasSolar ? 'Yes' : 'No'} (${solar} kW system)
+    
+    Instructions:
+    1. Determine the average daily electricity consumption (kWh) for a household of this size in their location.
+    2. Determine the specific grid energy mix (coal/gas/renewables percentage) for ${loc} to find the emissions per kWh.
+    3. If Solar is installed, calculate the average daily generation (kWh) for a ${solar}kW system in ${loc} and subtract it from consumption. (Net can't be negative).
+    4. Calculate the final net daily kg CO2e.
+    
+    Return ONLY valid JSON (no markdown):
+    {
+      "dailyKgCo2e": 12.5,
+      "shortReason": "one short sentence explaining the calc based on location fuel mix and solar offset"
+    }`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    const dailyKgCo2e = Math.max(0, Number(parsed.dailyKgCo2e) || 10);
+    
+    const profile = await UserElectricityProfile.findOneAndUpdate(
+      { userId },
+      {
+        householdSize: hSize,
+        houseSizeSqft: sqft,
+        hasSolar: Boolean(hasSolar),
+        solarKw: solar,
+        locationStr: loc,
+        dailyKgCo2e,
+        $setOnInsert: { lastAutoLoggedDate: new Date() } // start tracking from now
+      },
+      { new: true, upsert: true }
+    );
+    
+    res.json({ profile, shortReason: parsed.shortReason });
+  } catch (err) {
+    console.error('Electricity setup error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/electricity/profile', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  try {
+    const profile = await UserElectricityProfile.findOne({ userId });
+    res.json(profile || null);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/electricity/sync-daily', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  try {
+    const profile = await UserElectricityProfile.findOne({ userId });
+    if (!profile) return res.json({ syncedDays: 0 }); // none setup
+    
+    const now = new Date();
+    const lastDate = profile.lastAutoLoggedDate;
+    
+    // Normalize to start of day to calculate whole days missed
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfLast = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+    
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysMissed = Math.floor((startOfToday - startOfLast) / msPerDay);
+    
+    let daysSynced = 0;
+    if (daysMissed > 0) {
+      // Create entries for missed days
+      for (let i = 1; i <= daysMissed; i++) {
+        const logDate = new Date(startOfLast.getTime() + (i * msPerDay));
+        // Give it a slightly random hour so they dont all stack exactly at 00:00:00
+        logDate.setHours(8, 0, 0, 0); 
+        
+        await Activity.create({
+          userId,
+          label: 'Daily Home Energy',
+          value: profile.dailyKgCo2e,
+          icon: 'zap',
+          intensity: profile.dailyKgCo2e > 20 ? 'High' : (profile.dailyKgCo2e > 8 ? 'Medium' : 'Low'),
+          source: 'manual',
+          timestamp: logDate
+        });
+        
+        await UserMetric.findOneAndUpdate(
+          { userId },
+          { $inc: { currentEmissions: profile.dailyKgCo2e }, $set: { lastLogged: logDate } },
+          { upsert: true }
+        );
+        daysSynced++;
+      }
+      
+      profile.lastAutoLoggedDate = now;
+      await profile.save();
+    }
+    
+    res.json({ syncedDays: daysSynced });
+  } catch (err) {
+    console.error('Electricity sync error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default app;
