@@ -1440,6 +1440,9 @@ function initCarLogUI() {
                 if (destInfo.endLatLng) {
                     // Update the destination pill on main view
                     updateDestinationPill();
+                    // Go all the way back to main so they can press 'Log trip'
+                    carNavReset();
+                    return;
                 }
             }
             carNavPop();
