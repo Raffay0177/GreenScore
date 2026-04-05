@@ -538,10 +538,95 @@ const ACTIVITY_SWIPE_MIN = 120;
 const ACTIVITY_SWIPE_MAX_CAP = 180;
 /** Release at or past this fraction of max drag → delete (no tap) */
 const SWIPE_DELETE_THRESHOLD = 0.7;
+/** Shared easing for delete collapse + list FLIP (smooth deceleration) */
+const ACTIVITY_DELETE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const ACTIVITY_DELETE_COLLAPSE_MS = 420;
+const ACTIVITY_FLIP_MS = 420;
+
+/** Snap-back / commit-to-delete animation (rAF so delete gradient tracks the panel) */
+const ACTIVITY_SWIPE_SNAP_MS = 340;
+const ACTIVITY_SWIPE_EASE_OUT = (t) => 1 - Math.pow(1 - t, 2.85);
+const ACTIVITY_SWIPE_RUBBER_MAX_PX = 28;
+const ACTIVITY_SWIPE_RUBBER_STIFF = 0.33;
 
 function getMaxSwipeDist(wrap) {
     const w = wrap.getBoundingClientRect().width || 400;
     return Math.min(ACTIVITY_SWIPE_MAX_CAP, Math.max(ACTIVITY_SWIPE_MIN, w * 0.52));
+}
+
+function rubberBandSwipeX(wrap, x) {
+    const m = wrap._maxSwipe || getMaxSwipeDist(wrap);
+    let next = Math.min(0, x);
+    if (next < -m) {
+        const over = -m - next;
+        next = -m - Math.min(ACTIVITY_SWIPE_RUBBER_MAX_PX, over * ACTIVITY_SWIPE_RUBBER_STIFF);
+    }
+    return next;
+}
+
+function setActivitySwipeVisualProgress(wrap, offsetX) {
+    const m = wrap._maxSwipe || getMaxSwipeDist(wrap);
+    const linear = m > 0 ? Math.min(1, Math.abs(offsetX) / m) : 0;
+    const t = Math.min(1, linear);
+    const eased = 1 - Math.pow(1 - t, 2.35);
+    wrap.style.setProperty('--swipe-progress', String(eased));
+    wrap.style.setProperty('--swipe-linear', String(linear));
+}
+
+/**
+ * @param {object} options
+ * @param {boolean} [options.animated]
+ * @param {() => void} [options.onDone]
+ * @param {boolean} [options.allowOvershoot] — drag only; soft rubber past max left
+ */
+function applyActivityPanelTransform(wrap, panel, x, options = {}) {
+    const { animated = false, onDone, allowOvershoot = false } = options;
+    const m = wrap._maxSwipe || getMaxSwipeDist(wrap);
+    const resolved = allowOvershoot ? rubberBandSwipeX(wrap, x) : Math.max(-m, Math.min(0, x));
+
+    if (!animated) {
+        wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
+        panel.style.transition = 'none';
+        wrap._swipeOffset = resolved;
+        panel.style.transform = `translate3d(${resolved}px,0,0)`;
+        setActivitySwipeVisualProgress(wrap, resolved);
+        onDone?.();
+        return;
+    }
+
+    const endX = Math.max(-m, Math.min(0, x));
+    const startX = wrap._swipeOffset ?? 0;
+    if (Math.abs(endX - startX) < 0.75) {
+        applyActivityPanelTransform(wrap, panel, endX, { animated: false, onDone });
+        return;
+    }
+
+    wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
+    const token = wrap._panelAnimToken;
+    const t0 = performance.now();
+    const dur = ACTIVITY_SWIPE_SNAP_MS;
+
+    const step = (now) => {
+        if (token !== wrap._panelAnimToken) return;
+        const u = Math.min(1, (now - t0) / dur);
+        const e = ACTIVITY_SWIPE_EASE_OUT(u);
+        const xi = startX + (endX - startX) * e;
+        const mm = wrap._maxSwipe || getMaxSwipeDist(wrap);
+        const clampedXi = Math.max(-mm, Math.min(0, xi));
+        panel.style.transition = 'none';
+        wrap._swipeOffset = clampedXi;
+        panel.style.transform = `translate3d(${clampedXi}px,0,0)`;
+        setActivitySwipeVisualProgress(wrap, clampedXi);
+        if (u < 1) {
+            requestAnimationFrame(step);
+        } else {
+            wrap._swipeOffset = endX;
+            panel.style.transform = `translate3d(${endX}px,0,0)`;
+            setActivitySwipeVisualProgress(wrap, endX);
+            onDone?.();
+        }
+    };
+    requestAnimationFrame(step);
 }
 
 function escapeHtml(text) {
@@ -587,7 +672,8 @@ async function deleteActivityOnServer(id) {
     }
 }
 
-function buildSingleActivityRowHtml(act, receiptPreviews) {
+function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
+    const enterClass = opts.enterAnimation ? ' activity-feed-row-enter' : '';
     const id = act._id ?? act.id;
     const ic = safeFeedIcon(act.icon);
     const intenColor =
@@ -600,7 +686,7 @@ function buildSingleActivityRowHtml(act, receiptPreviews) {
         : `<div class="activity-feed-thumb-placeholder"><i data-lucide="${ic}" width="24" height="24"></i></div>`;
     const valAttr = Number.isFinite(val) ? val : 0;
     return `
-            <div class="activity-swipe-wrap" data-activity-id="${String(id)}" data-activity-value="${valAttr}">
+            <div class="activity-swipe-wrap${enterClass}" data-activity-id="${String(id)}" data-activity-value="${valAttr}">
               <div class="activity-swipe-actions">
                 <div class="activity-swipe-delete-visual" aria-hidden="true">
                   <i data-lucide="trash-2" width="22" height="22" stroke-width="2"></i>
@@ -641,21 +727,30 @@ function flipAnimateFeedSlideUp(feed, onDone) {
         onDone?.();
         return;
     }
+    const dur = `${ACTIVITY_FLIP_MS / 1000}s`;
+    const ease = ACTIVITY_DELETE_EASE;
     requestAnimationFrame(() => {
         rows.forEach((el) => {
+            el.style.willChange = 'transform, opacity';
             el.style.transform = `translateY(${el._flipDy}px)`;
+            el.style.opacity = '0.94';
             el.style.transition = 'none';
         });
         requestAnimationFrame(() => {
             rows.forEach((el) => {
-                el.style.transition = 'transform 0.34s cubic-bezier(0.25, 0.82, 0.2, 1)';
+                el.style.transition = `transform ${dur} ${ease}, opacity ${dur} ${ease}`;
                 el.style.transform = '';
+                el.style.opacity = '';
                 delete el._flipDy;
             });
             window.setTimeout(() => {
+                rows.forEach((el) => {
+                    el.style.willChange = '';
+                    el.style.transition = '';
+                });
                 if (window.lucide) lucide.createIcons();
                 onDone?.();
-            }, 360);
+            }, ACTIVITY_FLIP_MS + 48);
         });
     });
 }
@@ -714,34 +809,13 @@ function initActivitySwipeFeed(container) {
 
         const maxSwipe = () => wrap._maxSwipe || getMaxSwipeDist(wrap);
 
-        const updateSwipeProgress = (clamped) => {
-            const m = maxSwipe();
-            const linear = m > 0 ? Math.abs(clamped) / m : 0;
-            const eased = Math.min(1, Math.pow(linear, 1.15));
-            wrap.style.setProperty('--swipe-progress', String(eased));
-            wrap.style.setProperty('--swipe-linear', String(Math.min(1, linear)));
-        };
-
-        const setPanelOffset = (x, animated) => {
-            const m = maxSwipe();
-            const clamped = Math.max(-m, Math.min(0, x));
-            wrap._swipeOffset = clamped;
-            panel.style.transition = animated ? 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
-            panel.style.transform = `translateX(${clamped}px)`;
-            updateSwipeProgress(clamped);
-        };
-
         const closeAllOtherRows = () => {
             container.querySelectorAll('.activity-swipe-wrap').forEach((w) => {
                 if (w === wrap) return;
                 const p = w.querySelector('.activity-swipe-panel');
                 if (!p) return;
                 w.classList.remove('activity-swipe-dragging', 'activity-feed-row-removing');
-                w.style.setProperty('--swipe-progress', '0');
-                w.style.setProperty('--swipe-linear', '0');
-                w._swipeOffset = 0;
-                p.style.transition = 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)';
-                p.style.transform = 'translateX(0)';
+                applyActivityPanelTransform(w, p, 0, { animated: true });
             });
         };
 
@@ -763,9 +837,26 @@ function initActivitySwipeFeed(container) {
             wrap.classList.add('activity-feed-row-removing');
             const h = wrap.offsetHeight;
             wrap.style.overflow = 'hidden';
-            wrap.style.transition =
-                'max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease, margin-bottom 0.2s ease';
+            const collapseDur = `${ACTIVITY_DELETE_COLLAPSE_MS / 1000}s`;
+            wrap.style.transition = `max-height ${collapseDur} ${ACTIVITY_DELETE_EASE}, margin-bottom ${collapseDur} ${ACTIVITY_DELETE_EASE}`;
             wrap.style.maxHeight = `${h}px`;
+
+            const panel = wrap.querySelector('.activity-swipe-panel');
+            if (panel) {
+                const ox = wrap._swipeOffset ?? 0;
+                panel.style.transition = 'none';
+                panel.style.transformOrigin = 'center center';
+                panel.style.transform = `translate3d(${ox}px,0,0) scale(1)`;
+                panel.style.opacity = '1';
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const pd = `${Math.min(380, ACTIVITY_DELETE_COLLAPSE_MS - 20) / 1000}s`;
+                        panel.style.transition = `opacity ${pd} ${ACTIVITY_DELETE_EASE}, transform ${pd} ${ACTIVITY_DELETE_EASE}`;
+                        panel.style.transform = 'translate3d(0,0,0) scale(0.96)';
+                        panel.style.opacity = '0';
+                    });
+                });
+            }
 
             let finished = false;
             const complete = () => {
@@ -801,7 +892,10 @@ function initActivitySwipeFeed(container) {
                 for (const act of acts) {
                     const aid = String(act._id ?? act.id);
                     if (!existingIds.has(aid)) {
-                        feed.insertAdjacentHTML('beforeend', buildSingleActivityRowHtml(act, previews));
+                        feed.insertAdjacentHTML(
+                            'beforeend',
+                            buildSingleActivityRowHtml(act, previews, { enterAnimation: true })
+                        );
                         existingIds.add(aid);
                     }
                 }
@@ -827,7 +921,6 @@ function initActivitySwipeFeed(container) {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     wrap.style.maxHeight = '0';
-                    wrap.style.opacity = '0';
                     wrap.style.marginBottom = '0';
                 });
             });
@@ -841,7 +934,7 @@ function initActivitySwipeFeed(container) {
             window.setTimeout(() => {
                 wrap.removeEventListener('transitionend', onEnd);
                 complete();
-            }, 260);
+            }, ACTIVITY_DELETE_COLLAPSE_MS + 120);
         };
 
         const finishDrag = (e) => {
@@ -862,21 +955,25 @@ function initActivitySwipeFeed(container) {
             const o = wrap._swipeOffset ?? 0;
             const ratio = m > 0 ? Math.abs(o) / m : 0;
             if (ratio >= SWIPE_DELETE_THRESHOLD) {
-                void runExitDelete();
+                applyActivityPanelTransform(wrap, panel, -maxSwipe(), {
+                    animated: true,
+                    onDone: () => void runExitDelete()
+                });
                 return;
             }
-            setPanelOffset(0, true);
+            applyActivityPanelTransform(wrap, panel, 0, { animated: true });
         };
 
         wrap._swipeOffset = 0;
         wrap._maxSwipe = getMaxSwipeDist(wrap);
         wrap.style.setProperty('--swipe-progress', '0');
         wrap.style.setProperty('--swipe-linear', '0');
-        setPanelOffset(0, false);
+        applyActivityPanelTransform(wrap, panel, 0, { animated: false });
 
         panel.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             if (wrap.classList.contains('activity-feed-row-removing')) return;
+            wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
             closeAllOtherRows();
             wrap._maxSwipe = getMaxSwipeDist(wrap);
             wrap.classList.add('activity-swipe-dragging');
@@ -894,10 +991,8 @@ function initActivitySwipeFeed(container) {
         panel.addEventListener('pointermove', (e) => {
             if (!dragging || e.pointerId !== activePointerId) return;
             const dx = e.clientX - startClientX;
-            const m = maxSwipe();
-            let next = startOffset + dx;
-            next = Math.max(-m, Math.min(0, next));
-            setPanelOffset(next, false);
+            const next = startOffset + dx;
+            applyActivityPanelTransform(wrap, panel, next, { animated: false, allowOvershoot: true });
         });
 
         panel.addEventListener('pointerup', finishDrag);
