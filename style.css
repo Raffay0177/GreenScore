@@ -295,70 +295,75 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
     transition: stroke-dashoffset 1s ease-in-out;
 }
 
-/* Activity feed — Cal.ai-style row + swipe to reveal black Delete column */
+/* Activity feed — swipe left to delete; gradient delete layer blends under card */
 .activity-swipe-wrap {
   --swipe-progress: 0;
+  --swipe-linear: 0;
   position: relative;
   overflow: hidden;
   border-radius: var(--border-radius);
   margin-bottom: 12px;
 }
 
-.activity-swipe-actions {
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 88px;
-  background: #000;
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-  z-index: 0;
-  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+.activity-swipe-wrap.activity-swipe-exiting {
   pointer-events: none;
 }
 
-.activity-swipe-wrap.activity-swipe-open .activity-swipe-actions {
-  pointer-events: auto;
+.activity-swipe-actions {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  z-index: 0;
+  border-radius: var(--border-radius);
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(242, 242, 247, 0.65) 8%,
+    rgba(0, 0, 0, 0.06) 22%,
+    rgba(0, 0, 0, 0.38) 48%,
+    #141414 78%,
+    #000 100%
+  );
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
 }
 
-.activity-swipe-delete {
-  flex: 1;
-  width: 100%;
+.activity-swipe-delete-visual {
+  width: 92px;
   min-height: 100%;
-  border: none;
-  border-radius: 0 var(--border-radius) var(--border-radius) 0;
-  background: transparent;
-  color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  cursor: pointer;
-  padding: 12px 8px;
+  padding: 12px 14px 12px 8px;
+  color: #fff;
   opacity: var(--swipe-progress, 0);
-  pointer-events: none;
-  transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1), background 0.15s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  transition: opacity 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.activity-swipe-wrap.activity-swipe-dragging .activity-swipe-delete {
+.activity-swipe-wrap.activity-swipe-dragging .activity-swipe-delete-visual {
   transition: none;
 }
 
-.activity-swipe-wrap.activity-swipe-open .activity-swipe-delete {
-  pointer-events: auto;
+.activity-swipe-wrap.activity-swipe-exiting .activity-swipe-delete-visual {
+  opacity: 1;
+  transition: opacity 0.35s ease;
 }
 
-.activity-swipe-delete:active {
-  background: rgba(255, 255, 255, 0.12);
+.activity-swipe-delete-visual svg {
+  stroke: currentColor;
 }
 
 .activity-swipe-delete-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.03em;
-  text-transform: none;
   line-height: 1;
+  opacity: calc(0.35 + 0.65 * var(--swipe-linear, 0));
 }
 
 .activity-swipe-panel {
@@ -373,7 +378,9 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   background: var(--bg-card);
   border-radius: var(--border-radius);
   border: 1px solid var(--border-light);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.04),
+    inset -10px 0 20px -14px rgba(0, 0, 0, 0.07);
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;

@@ -533,7 +533,16 @@ const confirmAndLog = async () => {
 
 document.getElementById('receipt-upload').addEventListener('change', handleImageUpload);
 
-const ACTIVITY_DELETE_W = 88;
+/** Min / cap for how far left the row can be dragged (px); actual value scales with card width */
+const ACTIVITY_SWIPE_MIN = 120;
+const ACTIVITY_SWIPE_MAX_CAP = 180;
+/** Release at or past this fraction of max drag → delete (no tap) */
+const SWIPE_DELETE_THRESHOLD = 0.7;
+
+function getMaxSwipeDist(wrap) {
+    const w = wrap.getBoundingClientRect().width || 400;
+    return Math.min(ACTIVITY_SWIPE_MAX_CAP, Math.max(ACTIVITY_SWIPE_MIN, w * 0.52));
+}
 
 function escapeHtml(text) {
     if (text == null) return '';
@@ -565,8 +574,9 @@ function receiptPreviewForActivity(act, receiptPreviews) {
     return receiptPreviews[key] || null;
 }
 
-async function deleteActivityById(id) {
-    if (!id || !confirm('Remove this activity from your log?')) return;
+async function deleteActivityById(id, { confirmFirst = true } = {}) {
+    if (!id) return;
+    if (confirmFirst && !confirm('Remove this activity from your log?')) return;
     try {
         const token = await auth0Client.getTokenSilently();
         const res = await fetch(`/api/activities/${encodeURIComponent(id)}`, {
@@ -576,14 +586,17 @@ async function deleteActivityById(id) {
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             alert(err.error || 'Could not delete activity');
+            await refreshData();
             return;
         }
         await refreshData();
     } catch (e) {
         console.error(e);
         alert('Could not delete activity');
+        await refreshData();
     }
 }
+
 
 function initActivitySwipeFeed(container) {
     const wraps = container.querySelectorAll('.activity-swipe-wrap');
@@ -592,43 +605,31 @@ function initActivitySwipeFeed(container) {
         wrap.dataset.swipeBound = '1';
 
         const panel = wrap.querySelector('.activity-swipe-panel');
-        const btn = wrap.querySelector('.activity-swipe-delete');
-        if (!panel || !btn) return;
+        if (!panel) return;
 
         let dragging = false;
         let activePointerId = null;
         let startClientX = 0;
         let startOffset = 0;
+        let commitInFlight = false;
+
+        const maxSwipe = () => wrap._maxSwipe || getMaxSwipeDist(wrap);
 
         const updateSwipeProgress = (clamped) => {
-            const linear = Math.abs(clamped) / ACTIVITY_DELETE_W;
-            const eased = Math.min(1, Math.pow(linear, 1.35));
+            const m = maxSwipe();
+            const linear = m > 0 ? Math.abs(clamped) / m : 0;
+            const eased = Math.min(1, Math.pow(linear, 1.15));
             wrap.style.setProperty('--swipe-progress', String(eased));
+            wrap.style.setProperty('--swipe-linear', String(Math.min(1, linear)));
         };
 
         const setPanelOffset = (x, animated) => {
-            const clamped = Math.max(-ACTIVITY_DELETE_W, Math.min(0, x));
+            const m = maxSwipe();
+            const clamped = Math.max(-m, Math.min(0, x));
             wrap._swipeOffset = clamped;
-            panel.style.transition = animated ? 'transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+            panel.style.transition = animated ? 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
             panel.style.transform = `translateX(${clamped}px)`;
             updateSwipeProgress(clamped);
-        };
-
-        const clearOpenReveal = () => {
-            wrap.classList.remove('activity-swipe-open');
-        };
-
-        const scheduleRevealDeleteAfterOpenSnap = () => {
-            const done = (ev) => {
-                if (ev && ev.propertyName && ev.propertyName !== 'transform') return;
-                panel.removeEventListener('transitionend', done);
-                if ((wrap._swipeOffset ?? 0) === -ACTIVITY_DELETE_W) wrap.classList.add('activity-swipe-open');
-            };
-            panel.addEventListener('transitionend', done);
-            window.setTimeout(() => {
-                panel.removeEventListener('transitionend', done);
-                if ((wrap._swipeOffset ?? 0) === -ACTIVITY_DELETE_W) wrap.classList.add('activity-swipe-open');
-            }, 280);
         };
 
         const closeAllOtherRows = () => {
@@ -636,12 +637,49 @@ function initActivitySwipeFeed(container) {
                 if (w === wrap) return;
                 const p = w.querySelector('.activity-swipe-panel');
                 if (!p) return;
-                w.classList.remove('activity-swipe-open', 'activity-swipe-dragging');
+                w.classList.remove('activity-swipe-dragging', 'activity-swipe-exiting');
                 w.style.setProperty('--swipe-progress', '0');
+                w.style.setProperty('--swipe-linear', '0');
                 w._swipeOffset = 0;
-                p.style.transition = 'transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)';
+                p.style.transition = 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)';
                 p.style.transform = 'translateX(0)';
             });
+        };
+
+        const runExitDelete = async () => {
+            if (commitInFlight) return;
+            commitInFlight = true;
+            try {
+                wrap.classList.remove('activity-swipe-dragging');
+                wrap.classList.add('activity-swipe-exiting');
+                wrap.style.setProperty('--swipe-progress', '1');
+                wrap.style.setProperty('--swipe-linear', '1');
+                const dist = wrap.offsetWidth + 28;
+                panel.style.transition = 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1)';
+                panel.style.transform = `translateX(${-dist}px)`;
+
+                await new Promise((resolve) => {
+                    let finished = false;
+                    const end = () => {
+                        if (finished) return;
+                        finished = true;
+                        window.clearTimeout(tid);
+                        panel.removeEventListener('transitionend', onEnd);
+                        resolve();
+                    };
+                    const tid = window.setTimeout(end, 520);
+                    const onEnd = (ev) => {
+                        if (ev.propertyName && ev.propertyName !== 'transform') return;
+                        end();
+                    };
+                    panel.addEventListener('transitionend', onEnd);
+                });
+
+                const id = wrap.dataset.activityId;
+                await deleteActivityById(id, { confirmFirst: false });
+            } finally {
+                commitInFlight = false;
+            }
         };
 
         const finishDrag = (e) => {
@@ -658,27 +696,27 @@ function initActivitySwipeFeed(container) {
                 }
             }
             wrap.classList.remove('activity-swipe-dragging');
+            const m = maxSwipe();
             const o = wrap._swipeOffset ?? 0;
-            const snap = o < -ACTIVITY_DELETE_W / 2 ? -ACTIVITY_DELETE_W : 0;
-            if (snap === 0) {
-                clearOpenReveal();
-                setPanelOffset(0, true);
-            } else {
-                clearOpenReveal();
-                setPanelOffset(snap, true);
-                scheduleRevealDeleteAfterOpenSnap();
+            const ratio = m > 0 ? Math.abs(o) / m : 0;
+            if (ratio >= SWIPE_DELETE_THRESHOLD) {
+                void runExitDelete();
+                return;
             }
+            setPanelOffset(0, true);
         };
 
         wrap._swipeOffset = 0;
-        clearOpenReveal();
+        wrap._maxSwipe = getMaxSwipeDist(wrap);
         wrap.style.setProperty('--swipe-progress', '0');
+        wrap.style.setProperty('--swipe-linear', '0');
         setPanelOffset(0, false);
 
         panel.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (wrap.classList.contains('activity-swipe-exiting')) return;
             closeAllOtherRows();
-            clearOpenReveal();
+            wrap._maxSwipe = getMaxSwipeDist(wrap);
             wrap.classList.add('activity-swipe-dragging');
             dragging = true;
             activePointerId = e.pointerId;
@@ -694,8 +732,9 @@ function initActivitySwipeFeed(container) {
         panel.addEventListener('pointermove', (e) => {
             if (!dragging || e.pointerId !== activePointerId) return;
             const dx = e.clientX - startClientX;
+            const m = maxSwipe();
             let next = startOffset + dx;
-            next = Math.max(-ACTIVITY_DELETE_W, Math.min(0, next));
+            next = Math.max(-m, Math.min(0, next));
             setPanelOffset(next, false);
         });
 
@@ -703,12 +742,6 @@ function initActivitySwipeFeed(container) {
         panel.addEventListener('pointercancel', finishDrag);
         panel.addEventListener('lostpointercapture', (e) => {
             if (dragging && e.pointerId === activePointerId) finishDrag(e);
-        });
-
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            deleteActivityById(wrap.dataset.activityId);
         });
     });
 }
@@ -737,10 +770,10 @@ function renderData(data) {
                 return `
             <div class="activity-swipe-wrap" data-activity-id="${String(id)}">
               <div class="activity-swipe-actions">
-                <button type="button" class="activity-swipe-delete" aria-label="Delete activity">
+                <div class="activity-swipe-delete-visual" aria-hidden="true">
                   <i data-lucide="trash-2" width="22" height="22" stroke-width="2"></i>
                   <span class="activity-swipe-delete-label">Delete</span>
-                </button>
+                </div>
               </div>
               <div class="activity-swipe-panel">
                 <div class="activity-feed-thumb-wrap">${thumb}</div>
