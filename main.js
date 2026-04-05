@@ -1631,18 +1631,22 @@ function initActivitySwipeFeed(container) {
             closeAllOtherRows();
             wrap._maxSwipe = getMaxSwipeDist(wrap);
             
-            dragging = true;
+            const rect = panel.getBoundingClientRect();
+            const startedNearRight = (e.clientX > rect.right - (rect.width * 0.25));
+            
             activePointerId = e.pointerId;
             startClientX = e.clientX;
             startY = e.clientY;
             startOffset = wrap._swipeOffset ?? 0;
             isHorizontalLock = false;
-            isVerticalLock = false;
-
-            try {
-                // panel.setPointerCapture(e.pointerId); // Removed for better scroll compatibility
-            } catch (_) {
-                /* ignore */
+            
+            if (!startedNearRight) {
+                // If not near right edge, immediately lock to vertical/native scroll
+                isVerticalLock = true;
+                dragging = false;
+            } else {
+                isVerticalLock = false;
+                dragging = true;
             }
         });
 
