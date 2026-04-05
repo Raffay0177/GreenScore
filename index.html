@@ -220,7 +220,19 @@
                    <h2 class="clash" style="margin:0; font-size: 20px;">Home Energy</h2>
                 </div>
 
-                <div id="elec-setup-form">
+                <!-- Dashboard (Shown when already configured) -->
+                <div id="elec-dashboard" style="display:none; padding: 20px 0;">
+                    <i data-lucide="home" style="color:var(--primary-green); width:48px; height:48px; margin: 0 auto 16px; display:block;"></i>
+                    <p class="clash" style="font-size:24px; text-align:center; color:var(--text-main);">Home Configured</p>
+                    <p class="car-hint" style="text-align:center; margin-bottom:24px;">Your daily electricity is automatically tracking.</p>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <button onclick="viewElectricityEmissions()" style="width:100%; padding:14px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-light); border-radius:100px; font-weight:700; font-size:16px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;"><i data-lucide="bar-chart-2" style="width:18px;"></i> View Emissions</button>
+                        <button onclick="editElectricityEmissions()" style="width:100%; padding:14px; background:var(--primary-green); color:white; border:none; border-radius:100px; font-weight:700; font-size:16px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;"><i data-lucide="edit-2" style="width:18px;"></i> Update Emissions</button>
+                    </div>
+                </div>
+
+                <!-- Setup Form -->
+                <div id="elec-setup-form" style="display:none;">
                     <p class="car-hint" style="margin-bottom: 20px;">Set up your home profile once to automatically track your daily energy footprint.</p>
                     
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -229,8 +241,13 @@
                             <input type="number" id="elec-household-size" class="car-field-input" placeholder="People" min="1" value="1">
                         </div>
                         <div>
-                            <label class="car-field-label">Home Size (sq ft)</label>
-                            <input type="number" id="elec-house-size" class="car-field-input" placeholder="e.g. 2000" min="100">
+                            <label class="car-field-label">Home Size</label>
+                            <select id="elec-house-size" class="car-field-input" style="appearance:none; background:var(--bg-main);">
+                                <option value="Small">Small (Apt/Condo)</option>
+                                <option value="Medium" selected>Medium (House)</option>
+                                <option value="Large">Large (House)</option>
+                                <option value="Mansion">Mansion</option>
+                            </select>
                         </div>
                     </div>
                     
@@ -247,10 +264,21 @@
                     <label class="car-field-label" style="margin-top: 20px;">Location (For grid mix)</label>
                     <div style="display:flex; gap: 8px;">
                         <input type="text" id="elec-location" class="car-field-input" placeholder="City, State" readonly style="margin-bottom: 0;">
-                        <button onclick="getElectricityLocation()" class="dest-inline-btn" style="white-space: nowrap; background: rgba(0,122,255,0.1); color: var(--accent-blue); padding: 0 16px;"><i data-lucide="crosshair" style="width:16px; margin-right:4px;"></i>Get loc</button>
+                        <button onclick="getElectricityLocation()" class="dest-inline-btn" style="width:44px; display:flex; justify-content:center; align-items:center; padding: 0; background: rgba(0,122,255,0.1); color: var(--accent-blue);" title="Get Current Location"><i data-lucide="crosshair" style="width:20px;"></i></button>
                     </div>
 
-                    <button id="btn-elec-setup" onclick="submitElectricitySetup()" style="width:100%; padding:14px; background:var(--primary-green); color:white; border:none; border-radius:100px; font-weight:700; margin-top:24px; font-size:16px; cursor:pointer;">Save & Enable Tracking</button>
+                    <div style="display:flex; gap:12px; margin-top:24px;">
+                        <button onclick="backToLoggerMain()" style="flex:1; padding:14px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-light); border-radius:100px; font-weight:700; font-size:16px; cursor:pointer;">Cancel</button>
+                        <button id="btn-elec-setup" onclick="submitElectricitySetup()" style="flex:1; padding:14px; background:var(--primary-green); color:white; border:none; border-radius:100px; font-weight:700; font-size:16px; cursor:pointer;">Save Setup</button>
+                    </div>
+                </div>
+
+                <div id="elec-details-view" style="display:none; padding: 10px 0;">
+                    <div class="card" style="margin:0;">
+                        <p class="clash" style="font-size:20px; color:var(--primary-green); margin-bottom:8px;">Emission Details</p>
+                        <p class="car-hint" id="elec-details-text" style="font-size:14px; line-height:1.5; color:var(--text-main);"></p>
+                    </div>
+                    <button onclick="showElecDashboard()" style="width:100%; padding:14px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-light); border-radius:100px; font-weight:700; font-size:16px; cursor:pointer; margin-top:24px;">Back</button>
                 </div>
                 
                 <div id="elec-setup-busy" style="display:none; text-align:center; padding: 40px 0;">

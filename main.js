@@ -251,6 +251,8 @@ window.showLoggerElectricity = async () => {
     if (elec) elec.style.display = 'block';
     
     document.getElementById('elec-setup-form').style.display = 'block';
+    document.getElementById('elec-dashboard').style.display = 'none';
+    document.getElementById('elec-details-view').style.display = 'none';
     document.getElementById('elec-setup-busy').style.display = 'none';
     document.getElementById('elec-setup-done').style.display = 'none';
 
@@ -264,16 +266,40 @@ window.showLoggerElectricity = async () => {
             const profile = await res.json();
             if (profile) {
                 document.getElementById('elec-household-size').value = profile.householdSize;
-                document.getElementById('elec-house-size').value = profile.houseSizeSqft || '';
+                const sizeOpt = Array.from(document.getElementById('elec-house-size').options).find(o => o.value === profile.houseSizeStr);
+                if (sizeOpt) sizeOpt.selected = true;
+                
                 document.getElementById('elec-has-solar').checked = profile.hasSolar;
                 document.getElementById('elec-solar-kw-wrap').style.display = profile.hasSolar ? 'block' : 'none';
                 document.getElementById('elec-solar-kw').value = profile.solarKw || '';
                 document.getElementById('elec-location').value = profile.locationStr || '';
-                document.getElementById('btn-elec-setup').innerText = "Update Tracking";
+                
+                // Show dashboard rather than setup if configured
+                document.getElementById('elec-setup-form').style.display = 'none';
+                document.getElementById('elec-dashboard').style.display = 'block';
+                
+                // Prefill details
+                document.getElementById('elec-details-text').innerText = `${profile.dailyKgCo2e} kg CO2e Daily\n\n${profile.details || ''}`;
             }
         }
     } catch (e) { console.error("Error fetching electricity profile", e); }
     if (window.lucide) lucide.createIcons();
+};
+
+window.viewElectricityEmissions = () => {
+    document.getElementById('elec-dashboard').style.display = 'none';
+    document.getElementById('elec-details-view').style.display = 'block';
+};
+
+window.editElectricityEmissions = () => {
+    document.getElementById('elec-dashboard').style.display = 'none';
+    document.getElementById('elec-setup-form').style.display = 'block';
+};
+
+window.showElecDashboard = () => {
+    document.getElementById('elec-details-view').style.display = 'none';
+    document.getElementById('elec-setup-form').style.display = 'none';
+    document.getElementById('elec-dashboard').style.display = 'block';
 };
 
 window.getElectricityLocation = () => {
@@ -320,7 +346,7 @@ window.submitElectricitySetup = async () => {
         
         const payload = {
             householdSize: document.getElementById('elec-household-size').value,
-            houseSizeSqft: document.getElementById('elec-house-size').value,
+            homeSize: document.getElementById('elec-house-size').value,
             hasSolar: document.getElementById('elec-has-solar').checked,
             solarKw: document.getElementById('elec-solar-kw').value,
             locationStr: document.getElementById('elec-location').value

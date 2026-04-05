@@ -508,7 +508,7 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/electricity/setup', checkJwt, async (req, res) => {
   const userId = req.auth.payload.sub;
-  const { householdSize, houseSizeSqft, hasSolar, solarKw, locationStr } = req.body;
+  const { householdSize, homeSize, hasSolar, solarKw, locationStr } = req.body;
   
   try {
     if (!process.env.GOOGLE_API_KEY) {
@@ -516,19 +516,19 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
     }
     
     const hSize = Math.max(1, Number(householdSize) || 1);
-    const sqft = Number(houseSizeSqft) || 1500;
+    const sizeStr = String(homeSize || 'Medium');
     const solar = Number(solarKw) || 0;
     const loc = String(locationStr || 'United States');
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `For a carbon-tracking app, calculate the daily electricity carbon footprint (in kg CO2e) for a household:
     Household Size: ${hSize} people
-    House Size: ${sqft} sq ft
+    Home Size: ${sizeStr}
     Location: ${loc}
     Solar Installed: ${hasSolar ? 'Yes' : 'No'} (${solar} kW system)
     
     Instructions:
-    1. Determine the average daily electricity consumption (kWh) for a household of this size in their location.
+    1. Determine the average daily electricity consumption (kWh) for a household of this size (${sizeStr}) in their location.
     2. Determine the specific grid energy mix (coal/gas/renewables percentage) for ${loc} to find the emissions per kWh.
     3. If Solar is installed, calculate the average daily generation (kWh) for a ${solar}kW system in ${loc} and subtract it from consumption. (Net can't be negative).
     4. Calculate the final net daily kg CO2e.
@@ -536,7 +536,8 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
     Return ONLY valid JSON (no markdown):
     {
       "dailyKgCo2e": 12.5,
-      "shortReason": "one short sentence explaining the calc based on location fuel mix and solar offset"
+      "shortReason": "one short sentence explaining the calc based on location fuel mix and solar offset",
+      "distributionDetails": "A brief 2-sentence summary of the local grid makeup (e.g., 40% coal, 60% renewables) and how solar offsets their draw."
     }`;
 
     const result = await model.generateContent(prompt);
@@ -550,7 +551,8 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
       { userId },
       {
         householdSize: hSize,
-        houseSizeSqft: sqft,
+        houseSizeStr: sizeStr,
+        details: String(parsed.distributionDetails || parsed.shortReason || ''),
         hasSolar: Boolean(hasSolar),
         solarKw: solar,
         locationStr: loc,
@@ -560,7 +562,7 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
       { new: true, upsert: true }
     );
     
-    res.json({ profile, shortReason: parsed.shortReason });
+    res.json({ profile, shortReason: parsed.shortReason, distributionDetails: String(parsed.distributionDetails || parsed.shortReason || '') });
   } catch (err) {
     console.error('Electricity setup error:', err);
     res.status(500).json({ error: err.message });
