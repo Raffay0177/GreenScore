@@ -353,7 +353,8 @@ function runDestinationSearch() {
                     return { place: p, meters: d };
                 })
                 .filter(Boolean)
-                .sort((a, b) => a.meters - b.meters);
+                .sort((a, b) => a.meters - b.meters)
+                .slice(0, 5);
 
             if (!ranked.length) {
                 tryGeocodeOnly(query, listEl);
@@ -409,8 +410,11 @@ function renderResultList(ranked, listEl) {
         btn.addEventListener('click', () => {
             setEndMarker({ lat: loc.lat(), lng: loc.lng() }, name);
             setStatus(`Destination: ${name}`, 'info');
-            listEl.querySelectorAll('.dest-result-row').forEach((b) => b.classList.remove('dest-result-row--active'));
-            btn.classList.add('dest-result-row--active');
+            // Populate the search input with the selected destination
+            const queryInput = document.getElementById('dest-query-input');
+            if (queryInput) queryInput.value = name;
+            // Collapse the results list
+            listEl.innerHTML = '';
         });
         listEl.appendChild(btn);
     });
