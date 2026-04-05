@@ -11,8 +11,7 @@ const configureClient = async () => {
             audience: "https://dev-zikssz2t00xvnfuk.us.auth0.com/api/v2/",
             redirect_uri: window.location.origin
         },
-        cacheLocation: 'localstorage',
-        useRefreshTokens: true
+        cacheLocation: 'localstorage'
     });
 };
 
@@ -232,8 +231,15 @@ const handleImageUpload = async (event) => {
         renderScannedItems(results, compressedBase64);
     } catch (err) {
         console.error("Scanning failed:", err);
-        alert("Failed to analyze receipt. Please try again.");
         closeScanner();
+        // If token is missing/expired, prompt re-login
+        if (err.message && err.message.includes('Missing Refresh Token')) {
+            if (confirm("Your session has expired. Please log in again to continue.")) {
+                auth0Client.loginWithRedirect();
+            }
+        } else {
+            alert("Failed to analyze receipt. Please try again.");
+        }
     }
 };
 
