@@ -401,7 +401,6 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.04),
     inset -10px 0 20px -14px rgba(0, 0, 0, 0.07);
-  touch-action: none;
   -webkit-user-select: none;
   user-select: none;
   cursor: grab;

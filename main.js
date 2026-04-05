@@ -1640,7 +1640,7 @@ function initActivitySwipeFeed(container) {
             isVerticalLock = false;
 
             try {
-                panel.setPointerCapture(e.pointerId);
+                // panel.setPointerCapture(e.pointerId); // Removed for better scroll compatibility
             } catch (_) {
                 /* ignore */
             }
@@ -1659,11 +1659,13 @@ function initActivitySwipeFeed(container) {
                 if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
                     isVerticalLock = true;
                     dragging = false; // release control to native scroll
+                    try { panel.releasePointerCapture(e.pointerId); } catch(_) {}
                     return;
                 }
                 if (Math.abs(dx) > 10) {
                     isHorizontalLock = true;
                     wrap.classList.add('activity-swipe-dragging');
+                    try { panel.setPointerCapture(e.pointerId); } catch (_) {}
                 } else {
                     return; // Haven't moved enough yet to decide
                 }
