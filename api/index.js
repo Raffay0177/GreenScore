@@ -62,8 +62,8 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
     
     // --- ADAPTIVE AI INSIGHTS ---
     let aiTips = metrics.cachedInsights || [];
-    // Force refresh for final polish verification
-    const isStale = true;
+    const shortCache = 5 * 60 * 1000; // 5 mins
+    const isStale = !metrics.lastInsightGen || (new Date() - new Date(metrics.lastInsightGen)) > shortCache;
 
     if (isStale || aiTips.length === 0) {
       try {

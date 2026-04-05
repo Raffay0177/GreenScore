@@ -2543,10 +2543,22 @@ function renderData(data) {
         `).join('');
     }
 
-    applyDayInsights();
-    if (data) {
+    try {
         renderWeeklyChart(data);
+    } catch (e) {
+        console.error("Weekly chart error:", e);
+    }
+    
+    try {
+        applyDayInsights();
+    } catch (e) {
+        console.error("Dashboard update error:", e);
+    }
+
+    try {
         renderInvoice(data);
+    } catch (e) {
+        console.error("Invoice error:", e);
     }
 }
 
@@ -2614,15 +2626,16 @@ function renderWeeklyChart(data) {
         const { total: loggedTotal } = sumByIcon(acts);
         const total = (acts.length > 0) ? loggedTotal + elecDaily : 0;
         
-        // Height calculation: goal is 70% height
-        const heightPct = total === 0 ? 5 : Math.min(100, (total / (goal * 1.4)) * 100);
-        const dayLabel = new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })[0];
+        const heightPct = Math.max(8, Math.min(100, (total / (goal * 1.3)) * 100));
+        // Use a more robust way to get the single character day label
+        const dateObj = new Date(day + 'T12:00:00');
+        const dayLabel = dateObj.toLocaleString('en-US', { weekday: 'short' }).charAt(0);
         const barColor = total > goal ? 'var(--accent-orange)' : 'var(--primary-green)';
 
         html += `
             <div class="chart-bar" style="height: 100%; width: 100%; background: var(--border-light); border-radius: 8px; position:relative;">
                 <span class="bar-label" style="position:absolute; bottom: -25px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-dim);">${dayLabel}</span>
-                <div style="height: ${heightPct}%; width:100%; background: ${total > 0 ? barColor : '#eee'}; border-radius: 8px; transition: height 0.5s ease; position:absolute; bottom:0;"></div>
+                <div style="height: ${heightPct}%; width:100%; background: ${total > 0 ? barColor : '#e0e0e0'}; border-radius: 8px; transition: height 0.5s ease; position:absolute; bottom:0;"></div>
             </div>
         `;
     });
