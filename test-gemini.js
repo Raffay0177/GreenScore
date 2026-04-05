@@ -15,8 +15,8 @@ async function testGemini() {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   try {
-    console.log('\n--- Testing Model: gemini-2.5-flash ---');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    console.log('\n--- Testing Model: gemini-1.5-flash ---');
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     console.log('Sending request...');
     const result = await model.generateContent("Hello! Respond with exactly: GreenScore AI is online!");

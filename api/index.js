@@ -532,6 +532,14 @@ app.post('/api/electricity/setup', checkJwt, async (req, res) => {
     2. Determine the specific grid energy mix (coal/gas/renewables percentage) for ${loc} to find the emissions per kWh.
     3. If Solar is installed, calculate the average daily generation (kWh) for a ${solar}kW system in ${loc} and subtract it from consumption. (Net can't be negative).
     
+    Return ONLY JSON:
+    {"dailyKgCo2e": 5.4, "shortReason": "...", "gridMix": [{"source": "Coal", "pct": 40}, ...], "solarExplanation": "..."}`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleanJson);
+    
     const dailyKgCo2e = Math.max(0, Number(parsed.dailyKgCo2e) || 10);
     
     const profile = await UserElectricityProfile.findOneAndUpdate(
