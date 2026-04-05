@@ -62,8 +62,8 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
     
     // --- ADAPTIVE AI INSIGHTS ---
     let aiTips = metrics.cachedInsights || [];
-    const oneDay = 24 * 60 * 60 * 1000;
-    const isStale = !metrics.lastInsightGen || (new Date() - new Date(metrics.lastInsightGen)) > oneDay;
+    // Force refresh for final polish verification
+    const isStale = true;
 
     if (isStale || aiTips.length === 0) {
       try {
@@ -88,7 +88,7 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const prompt = `You are a sustainability expert for 'GreenScore'. Analyze these habits and provide 3 personalized, informative AI Tips.
         Rules:
-        1. Keep each tip EXTREMELY SHORT and MEANINGFUL (max 10 words). One-liners only.
+        1. Keep each tip EXTREMELY SHORT and MEANINGFUL (max 7 words). NO SENTENCES, JUST PUNCHY FRAGMENTS.
         2. If user is new, give 3 generic high-impact facts for an average American.
         3. If they have high beef logs, include a specific fact about the emissions of raising one cow.
         4. If they have many rush-hour car trips, suggest taking the bus or carpooling during peak times.

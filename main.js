@@ -225,8 +225,6 @@ function applyDayInsights() {
         
         if (window.lucide) lucide.createIcons();
     }
-    
-    if (carbonSnapshot) renderWeeklyChart(carbonSnapshot);
 }
 
 window.switchTab = (tabId) => {
@@ -2546,6 +2544,7 @@ function renderData(data) {
     }
 
     applyDayInsights();
+    if (data) renderWeeklyChart(data);
 }
 
 function animateRing(id, percent) {
