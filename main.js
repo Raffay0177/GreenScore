@@ -1366,17 +1366,25 @@ function initActivitySwipeFeed(container) {
         wrap.style.setProperty('--swipe-linear', '0');
         applyActivityPanelTransform(wrap, panel, 0, { animated: false });
 
+        let startY = 0;
+        let isHorizontalLock = false;
+        let isVerticalLock = false;
+
         panel.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             if (wrap.classList.contains('activity-feed-row-removing')) return;
             wrap._panelAnimToken = (wrap._panelAnimToken || 0) + 1;
             closeAllOtherRows();
             wrap._maxSwipe = getMaxSwipeDist(wrap);
-            wrap.classList.add('activity-swipe-dragging');
+            
             dragging = true;
             activePointerId = e.pointerId;
             startClientX = e.clientX;
+            startY = e.clientY;
             startOffset = wrap._swipeOffset ?? 0;
+            isHorizontalLock = false;
+            isVerticalLock = false;
+
             try {
                 panel.setPointerCapture(e.pointerId);
             } catch (_) {
@@ -1386,7 +1394,27 @@ function initActivitySwipeFeed(container) {
 
         panel.addEventListener('pointermove', (e) => {
             if (!dragging || e.pointerId !== activePointerId) return;
+            if (isVerticalLock) return; // ignore if we are scrolling vertically
+
             const dx = e.clientX - startClientX;
+            const dy = e.clientY - startY;
+
+            // Only lock into horizontal mode if moved significantly horizontally 
+            // AND the move is more horizontal than vertical.
+            if (!isHorizontalLock) {
+                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+                    isVerticalLock = true;
+                    dragging = false; // release control to native scroll
+                    return;
+                }
+                if (Math.abs(dx) > 10) {
+                    isHorizontalLock = true;
+                    wrap.classList.add('activity-swipe-dragging');
+                } else {
+                    return; // Haven't moved enough yet to decide
+                }
+            }
+
             const next = startOffset + dx;
             applyActivityPanelTransform(wrap, panel, next, { animated: false, allowOvershoot: true });
         });
