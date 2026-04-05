@@ -683,6 +683,23 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
   line-height: 1.35;
 }
 
+.food-input-group input:focus {
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 4px rgba(71, 230, 129, 0.15);
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.listening .lucide-mic {
+  animation: pulse-red 1.5s infinite;
+  color: #ff3b30 !important;
+}
+
+/* Rest of existing styles */
 .car-add-split {
   display: flex;
   flex-direction: column;

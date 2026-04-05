@@ -415,6 +415,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     initCarLogUI();
     if (window.lucide) lucide.createIcons();
 
+    // Bind voice button
+    const voiceBtn = document.getElementById('btn-food-voice');
+    if (voiceBtn) {
+        voiceBtn.onclick = startFoodVoice;
+    }
+    
+    // Bind barcode upload
+    const barcodeInput = document.getElementById('barcode-upload');
+    if (barcodeInput) {
+        barcodeInput.addEventListener('change', (e) => handleImageUpload(e, '/api/food/scan-barcode'));
+    }
+
     const swipeContainer = document.getElementById('dash-swipe');
     const dots = document.querySelectorAll('.dot');
     if (swipeContainer) {
@@ -431,10 +443,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 window.closeScanner = () => {
     document.getElementById('scanner-modal').style.display = 'none';
-    document.getElementById('receipt-upload').value = ''; // Reset input
+    document.getElementById('receipt-upload').value = ''; 
+    document.getElementById('barcode-upload').value = '';
 };
 
-const handleImageUpload = async (event) => {
+// Unified image handler (receipts or barcodes)
+const handleImageUpload = async (event, endpoint = '/api/scan') => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -445,19 +459,99 @@ const handleImageUpload = async (event) => {
 
     try {
         const compressedBase64 = await compressImage(file);
-        const results = await sendToAI(compressedBase64);
-        renderScannedItems(results, compressedBase64);
+        const results = await sendToAI(compressedBase64, endpoint);
+        // If it's a barcode, it might be a single object {label, value, ...}
+        // Instead of the multi-item {items: [...]} format.
+        const normalized = results.items ? results : { items: [results], totalCO2: results.value };
+        renderScannedItems(normalized, compressedBase64);
     } catch (err) {
         console.error("Scanning failed:", err);
         closeScanner();
-        // If token is missing/expired, prompt re-login
-        if (err.message && err.message.includes('Missing Refresh Token')) {
-            if (confirm("Your session has expired. Please log in again to continue.")) {
-                auth0Client.loginWithRedirect();
-            }
-        } else {
-            alert("Failed to analyze receipt. Please try again.");
+        alert(err.message || "Failed to analyze image.");
+    }
+};
+
+window.startFoodVoice = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("Voice recognition not supported in this browser. Try Chrome.");
+        return;
+    }
+    const recognition = new SpeechRecognition();
+    const btn = document.getElementById('btn-food-voice');
+    
+    recognition.onstart = () => {
+        btn.classList.add('listening');
+        // Red color and stop icon
+        btn.style.color = '#ff3b30'; 
+        btn.innerHTML = '<i data-lucide="circle-stop"></i>';
+        if (window.lucide) lucide.createIcons();
+    };
+    
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('food-desc-input').value = transcript;
+    };
+    
+    recognition.onend = () => {
+        btn.classList.remove('listening');
+        btn.style.color = 'var(--primary-green)';
+        btn.innerHTML = '<i data-lucide="mic"></i>';
+        if (window.lucide) lucide.createIcons();
+    };
+    
+    recognition.start();
+};
+
+window.submitFoodDescription = async () => {
+    const input = document.getElementById('food-desc-input');
+    const desc = input.value.trim();
+    if (!desc) return;
+    
+    const originalBtnText = "Log";
+    try {
+        // Show loading in the input area? 
+        input.disabled = true;
+        input.placeholder = "Analyzing with AI...";
+        
+        const token = await auth0Client.getTokenSilently();
+        const res = await fetch('/api/food/estimate', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ description: desc })
+        });
+        
+        if (!res.ok) throw new Error("Could not estimate CO2");
+        const data = await res.json();
+        
+        // Log the activity
+        const logRes = await fetch('/api/log', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                label: data.label,
+                value: data.value,
+                icon: 'utensils',
+                intensity: data.intensity
+            })
+        });
+        
+        if (logRes.ok) {
+            toggleLogger();
+            refreshData();
+            input.value = '';
         }
+    } catch (err) {
+        alert(err.message || "Failed to log food.");
+    } finally {
+        input.disabled = false;
+        input.placeholder = "e.g. 2 eggs and toast";
     }
 };
 
@@ -496,9 +590,9 @@ const compressImage = (file) => {
     });
 };
 
-const sendToAI = async (base64Data) => {
+const sendToAI = async (base64Data, endpoint = '/api/scan') => {
     const token = await auth0Client.getTokenSilently();
-    const response = await fetch('/api/scan', {
+    const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
@@ -506,6 +600,10 @@ const sendToAI = async (base64Data) => {
         },
         body: JSON.stringify({ image: base64Data })
     });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "AI Error");
+    }
     return await response.json();
 };
 
@@ -554,7 +652,7 @@ const confirmAndLog = async () => {
     }
 };
 
-document.getElementById('receipt-upload').addEventListener('change', handleImageUpload);
+document.getElementById('receipt-upload').addEventListener('change', (e) => handleImageUpload(e, '/api/scan'));
 
 /** Min / cap for how far left the row can be dragged (px); actual value scales with card width */
 const ACTIVITY_SWIPE_MIN = 120;

@@ -214,23 +214,39 @@
 
             <!-- Food Sub-menu -->
             <div id="logger-view-food" style="display:none;">
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
                    <button onclick="backToLoggerMain()" style="background:none; border:none; color:var(--accent-blue); padding:0; cursor:pointer;"><i data-lucide="arrow-left" style="width:20px; height:20px;"></i></button>
-                   <h2 class="clash" style="margin:0;">Food Options</h2>
+                   <h2 class="clash" style="margin:0; font-size: 20px;">Food Options</h2>
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-                    <div class="card mini-card" style="border: 1px solid var(--border-light); margin:0;" onclick="logQuick('Food')">
-                        <i data-lucide="edit-3"></i>
-                        Quick Log
+
+                <!-- Description & Voice Input -->
+                <div class="food-input-group" style="margin-bottom: 24px;">
+                    <label class="car-field-label" style="margin-bottom: 8px; display:block;">Describe your meal</label>
+                    <div style="display:flex; gap:8px;">
+                        <div style="position:relative; flex:1;">
+                            <input type="text" id="food-desc-input" class="car-field-input" placeholder="e.g. 2 eggs and toast" style="padding-right: 44px; margin-bottom: 0;">
+                            <button id="btn-food-voice" title="Voice to text" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--primary-green); padding:8px; cursor:pointer;">
+                                <i data-lucide="mic" style="width:20px; height:20px;"></i>
+                            </button>
+                        </div>
+                        <button onclick="submitFoodDescription()" style="background:var(--primary-green); border:none; color:white; padding:0 20px; border-radius:12px; font-weight:700;">Log</button>
                     </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
                     <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0; background: #e3f2fd;" onclick="document.getElementById('receipt-upload').click()">
                         <i data-lucide="camera"></i>
                         Scan Receipt
+                    </div>
+                    <div class="card mini-card" style="border: 1px solid var(--accent-orange); margin:0; background: #fff8e1;" onclick="document.getElementById('barcode-upload').click()">
+                        <i data-lucide="barcode"></i>
+                        Scan Barcode
                     </div>
                 </div>
             </div>
 
             <input type="file" id="receipt-upload" accept="image/*" capture="environment" style="display:none;">
+            <input type="file" id="barcode-upload" accept="image/*" capture="environment" style="display:none;">
             <button onclick="toggleLogger()" style="width:100%; border:none; background: #000; color:#fff; padding:16px; border-radius:100px; font-weight:700;">Cancel</button>
         </div>
     </div>

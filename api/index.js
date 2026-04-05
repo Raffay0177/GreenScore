@@ -247,6 +247,94 @@ Use ~1.0–2.0 for BEV/small hybrid, ~2–4 for average ICE sedan, ~4–9 for la
   }
 });
 
+// POST Estimate Food Carbon (Text/Voice)
+app.post('/api/food/estimate', checkJwt, async (req, res) => {
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+      return res.status(503).json({ error: 'AI estimates require GOOGLE_API_KEY.' });
+    }
+    const { description } = req.body;
+    if (!description || typeof description !== 'string') {
+      return res.status(400).json({ error: 'description is required' });
+    }
+
+    const aiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const prompt = `For a carbon-tracking app, estimate the kg CO2e for this food item or meal: "${description}". 
+    Return ONLY valid JSON (no markdown):
+    {
+      "label": "a short, clean name for the item",
+      "value": 1.5,
+      "intensity": "Low" or "High",
+      "shortReason": "one short sentence explaining the footprint"
+    }
+    Rules: Beef/Lamb are very high (4-10+ kg), poultry/pork are medium (1-3 kg), plants/grains are low (0.1-0.8 kg).`;
+
+    const result = await aiModel.generateContent(prompt);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    res.json({
+      label: String(parsed.label || description).slice(0, 100),
+      value: Math.max(0.01, Math.min(100, Number(parsed.value) || 0.5)),
+      intensity: parsed.intensity === 'High' ? 'High' : 'Low',
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
+    });
+  } catch (err) {
+    console.error('Food estimate error:', err);
+    res.status(500).json({ error: err.message || 'Could not analyze food' });
+  }
+});
+
+// POST Scan Barcode (Image analysis)
+app.post('/api/food/scan-barcode', checkJwt, async (req, res) => {
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+      return res.status(503).json({ error: 'Barcode scanning requires GOOGLE_API_KEY.' });
+    }
+    const { image } = req.body;
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ error: 'image (base64) is required' });
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const base64Data = image.includes(',') ? image.split(',')[1] : image;
+    const mimeType = image.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+
+    const prompt = `Identify the product from this barcode photo and estimate its typical carbon footprint (kg CO2e).
+    Return ONLY valid JSON (no markdown):
+    {
+      "label": "Product Name",
+      "value": 0.8,
+      "intensity": "Low" or "High",
+      "shortReason": "one short sentence"
+    }
+    If you cannot see a barcode or identify the product, return an error in the JSON.`;
+
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: base64Data, mimeType } }
+    ]);
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    if (parsed.error) {
+        return res.status(422).json({ error: parsed.error });
+    }
+
+    res.json({
+      label: String(parsed.label || 'Scanned Product').slice(0, 100),
+      value: Math.max(0.01, Math.min(100, Number(parsed.value) || 1.0)),
+      intensity: parsed.intensity === 'High' ? 'High' : 'Low',
+      shortReason: String(parsed.shortReason || '').slice(0, 300)
+    });
+  } catch (err) {
+    console.error('Barcode scan error:', err);
+    res.status(500).json({ error: err.message || 'Could not scan barcode' });
+  }
+});
+
 // POST Log Activity (Protected)
 app.post('/api/log', checkJwt, async (req, res) => {
   const userId = req.auth.payload.sub;
