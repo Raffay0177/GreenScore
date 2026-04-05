@@ -11,7 +11,9 @@ const configureClient = async () => {
             audience: "https://dev-zikssz2t00xvnfuk.us.auth0.com/api/v2/",
             redirect_uri: window.location.origin
         },
-        cacheLocation: 'localstorage'
+        cacheLocation: 'localstorage',
+        // Mobile Safari (and some in-app browsers) block iframe-based silent auth; refresh tokens avoid that.
+        useRefreshTokens: true
     });
 };
 
@@ -45,6 +47,11 @@ window.logQuick = async (type) => {
     if (type === 'Shopping') payload = { label: 'Eco Purchase', value: 0.8, icon: 'shopping-bag', intensity: 'Low' };
 
     try {
+        if (!(await auth0Client.isAuthenticated())) {
+            alert('Please log in to save activities.');
+            auth0Client.loginWithRedirect();
+            return;
+        }
         const token = await auth0Client.getTokenSilently();
         const res = await fetch('/api/log', {
             method: 'POST',
@@ -57,9 +64,18 @@ window.logQuick = async (type) => {
         if (res.ok) {
             toggleLogger();
             refreshData();
+            return;
         }
+        const errBody = await res.json().catch(() => ({}));
+        alert(errBody.error || `Could not save (${res.status}). Try logging in again.`);
     } catch (err) {
         console.error("Failed to log activity:", err);
+        const msg = err?.error || err?.message || String(err);
+        if (msg.includes('Missing Refresh Token') || msg.includes('login_required')) {
+            if (confirm('Session expired on this device. Log in again?')) auth0Client.loginWithRedirect();
+        } else {
+            alert('Could not save this activity. If you are on a phone, try logging out and back in once.');
+        }
     }
 };
 
