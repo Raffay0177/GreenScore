@@ -25,18 +25,17 @@ async function getClimatiqEmission(query) {
   if (!process.env.CLIMATIQ_API_KEY) return null;
   
   try {
-    // 1. Search for the emission factor
-    const searchRes = await fetch('https://api.climatiq.io/data/v1/search', {
-      method: 'POST',
+    // 1. Search for the emission factor (GET method)
+    const url = new URL('https://api.climatiq.io/data/v1/search');
+    url.searchParams.append('query', query);
+    url.searchParams.append('data_version', '^2');
+    url.searchParams.append('results_per_page', '1');
+
+    const searchRes = await fetch(url, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.CLIMATIQ_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        query: query,
-        data_version: "^2",
-        results_per_page: 1
-      })
+        'Authorization': `Bearer ${process.env.CLIMATIQ_API_KEY}`
+      }
     });
 
     if (!searchRes.ok) return null;
