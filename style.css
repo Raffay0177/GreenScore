@@ -268,5 +268,32 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 .status-warn { background: #fff3e0; color: #ef6c00; }
 .status-danger { background: #ffebee; color: #c62828; }
 
+/* Spinner & Scanner */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spinner { animation: spin 1s linear infinite; }
+
+#scanner-modal {
+    backdrop-filter: blur(8px);
+    transition: opacity 0.3s ease;
+    display: flex;
+}
+
+.scanned-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.scanned-item:last-child { border:none; }
+.scanned-item .name { font-weight: 600; font-size: 14px; }
+.scanned-item .co2 { color: var(--accent-orange); font-weight: 700; font-size: 14px; }
+
+/* Ring Smoothness */
+.ring-progress {
+    transition: stroke-dashoffset 1s ease-in-out;
+}
+
 /* Existing Components Overrides */
 .card.main-chart { padding: 0; overflow: hidden; } /* Remove padding for carousel */

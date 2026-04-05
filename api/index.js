@@ -5,8 +5,12 @@ import dotenv from 'dotenv';
 import { auth } from 'express-oauth2-jwt-bearer';
 import Activity from '../server/models/Activity.js';
 import UserMetric from '../server/models/UserMetric.js';
+import Receipt from '../server/models/Receipt.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 dotenv.config();
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
 const app = express();
 
@@ -68,6 +72,101 @@ app.post('/api/log', checkJwt, async (req, res) => {
     res.status(201).json(newActivity);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// POST Scan Receipt (Protected)
+app.post('/api/scan', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  const { image } = req.body;
+
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+        throw new Error("Gemini API Key is missing. Please add it to your .env file.");
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const base64Data = image.split(',')[1];
+
+    const prompt = `
+      Analyze this grocery receipt. 
+      Identify every food or shopping item and estimate its carbon footprint in kg CO2.
+      Use your knowledge of agricultural impact (e.g., beef is high, vegetables are low).
+      Return ONLY a JSON object in this format:
+      {
+        "items": [
+          {"label": "Apples", "value": 0.3, "count": 1, "category": "Food"},
+          {"label": "Beef Burger", "value": 4.5, "count": 1, "category": "Food"}
+        ],
+        "totalCO2": 4.8
+      }
+    `;
+
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
+    ]);
+
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, "").trim();
+    const parsedData = JSON.parse(cleanJson);
+
+    // Save to Database
+    const newReceipt = await Receipt.create({
+      userId,
+      imageBase64: image,
+      items: parsedData.items,
+      totalCO2: parsedData.totalCO2
+    });
+
+    // Also Log as individual activities so they show in the main feed
+    for (const item of parsedData.items) {
+        await Activity.create({
+            userId,
+            label: item.label,
+            value: item.value,
+            icon: item.category === 'Food' ? 'utensils' : 'shopping-bag',
+            intensity: item.value > 2 ? 'High' : 'Low'
+        });
+        
+        await UserMetric.findOneAndUpdate(
+            { userId },
+            { $inc: { currentEmissions: item.value } },
+            { upsert: true }
+        );
+    }
+
+    res.json(newReceipt);
+  } catch (err) {
+    console.error("AI Scan Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Receipts History
+app.get('/api/receipts', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  try {
+    const receipts = await Receipt.find({ userId }).sort({ timestamp: -1 });
+    res.json(receipts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE Receipt
+app.delete('/api/receipts/:id', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  try {
+    const receipt = await Receipt.findOne({ _id: req.params.id, userId });
+    if (!receipt) return res.status(404).json({ error: "Receipt not found" });
+
+    // Note: This only deletes the receipt entry, not the individual activities 
+    // it generated, to keep the historical footprint intact.
+    await Receipt.deleteOne({ _id: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
