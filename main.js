@@ -574,25 +574,28 @@ function receiptPreviewForActivity(act, receiptPreviews) {
     return receiptPreviews[key] || null;
 }
 
+async function deleteActivityOnServer(id) {
+    if (!id) throw new Error('Missing activity');
+    const token = await auth0Client.getTokenSilently();
+    const res = await fetch(`/api/activities/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not delete activity');
+    }
+}
+
 async function deleteActivityById(id, { confirmFirst = true } = {}) {
     if (!id) return;
     if (confirmFirst && !confirm('Remove this activity from your log?')) return;
     try {
-        const token = await auth0Client.getTokenSilently();
-        const res = await fetch(`/api/activities/${encodeURIComponent(id)}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            alert(err.error || 'Could not delete activity');
-            await refreshData();
-            return;
-        }
+        await deleteActivityOnServer(id);
         await refreshData();
     } catch (e) {
         console.error(e);
-        alert('Could not delete activity');
+        alert(e.message || 'Could not delete activity');
         await refreshData();
     }
 }
@@ -646,37 +649,50 @@ function initActivitySwipeFeed(container) {
             });
         };
 
+        const EXIT_MS = 340;
+
+        const waitExitAnimation = () =>
+            new Promise((resolve) => {
+                let finished = false;
+                const end = () => {
+                    if (finished) return;
+                    finished = true;
+                    window.clearTimeout(tid);
+                    panel.removeEventListener('transitionend', onEnd);
+                    panel.style.willChange = '';
+                    resolve();
+                };
+                const tid = window.setTimeout(end, EXIT_MS + 80);
+                const onEnd = (ev) => {
+                    if (ev.propertyName && ev.propertyName !== 'transform') return;
+                    end();
+                };
+                panel.addEventListener('transitionend', onEnd);
+            });
+
         const runExitDelete = async () => {
             if (commitInFlight) return;
             commitInFlight = true;
+            const id = wrap.dataset.activityId;
             try {
                 wrap.classList.remove('activity-swipe-dragging');
                 wrap.classList.add('activity-swipe-exiting');
                 wrap.style.setProperty('--swipe-progress', '1');
                 wrap.style.setProperty('--swipe-linear', '1');
+                panel.style.willChange = 'transform';
                 const dist = wrap.offsetWidth + 28;
-                panel.style.transition = 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1)';
+                panel.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.25, 0.82, 0.2, 1)`;
                 panel.style.transform = `translateX(${-dist}px)`;
 
-                await new Promise((resolve) => {
-                    let finished = false;
-                    const end = () => {
-                        if (finished) return;
-                        finished = true;
-                        window.clearTimeout(tid);
-                        panel.removeEventListener('transitionend', onEnd);
-                        resolve();
-                    };
-                    const tid = window.setTimeout(end, 520);
-                    const onEnd = (ev) => {
-                        if (ev.propertyName && ev.propertyName !== 'transform') return;
-                        end();
-                    };
-                    panel.addEventListener('transitionend', onEnd);
-                });
+                const apiPromise = deleteActivityOnServer(id);
+                const animPromise = waitExitAnimation();
+                const [apiOutcome] = await Promise.allSettled([apiPromise, animPromise]);
 
-                const id = wrap.dataset.activityId;
-                await deleteActivityById(id, { confirmFirst: false });
+                if (apiOutcome.status === 'rejected') {
+                    const msg = apiOutcome.reason?.message || 'Could not delete activity';
+                    alert(msg);
+                }
+                await refreshData();
             } finally {
                 commitInFlight = false;
             }
