@@ -58,12 +58,15 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
       for (const r of recs) receiptPreviews[String(r._id)] = r.imageBase64;
     }
 
+    const electricityProfile = await UserElectricityProfile.findOne({ userId }).lean();
+    
     res.json({
       dailyGoal: metrics.dailyGoal,
       currentEmissions: metrics.currentEmissions,
       streak: metrics.streak,
       activities,
       receiptPreviews,
+      electricityProfile,
       aiTips: [
         { id: 101, text: "Your recent activities show a high carbon footprint. Try swapping beef for plant-based alternatives." },
         { id: 102, text: "Commuting by public transport could save up to 30% on your daily emissions." }

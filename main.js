@@ -2498,8 +2498,20 @@ function renderData(data) {
 
     const tips = document.getElementById('ai-tips');
     if (tips && data.aiTips) {
-        tips.innerHTML = data.aiTips.map(tip => `
-            <div class="tip-card"><span class="tag">AI TIP</span><p>${tip.text}</p></div>
+        let tiplist = [...data.aiTips];
+        if (data.electricityProfile) {
+            const hSize = data.electricityProfile.householdSize || 1;
+            const avg = (data.electricityProfile.dailyKgCo2e / hSize).toFixed(1);
+            tiplist.unshift({
+                isElec: true,
+                text: `Your household averages <strong>${avg} kg</strong> CO2e per person daily based on your profile.`
+            });
+        }
+        tips.innerHTML = tiplist.map(tip => `
+            <div class="tip-card">
+                <span class="tag" style="${tip.isElec ? 'background:var(--accent-blue);' : ''}">${tip.isElec ? 'ELECTRICITY' : 'AI TIP'}</span>
+                <p>${tip.text}</p>
+            </div>
         `).join('');
     }
 
