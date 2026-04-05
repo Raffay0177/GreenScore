@@ -1068,6 +1068,9 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
     const valStr = isProcessing ? '...' : (isError ? 'FAIL' : `+${val.toFixed(1)}`);
     const metaStr = isProcessing ? 'Analyzing image...' : (isError ? 'Could not analyze' : `CO2e · ${act.intensity}`);
 
+    const isVerified = act.isVerified || (String(act.shortReason || '').includes('Verified'));
+    const verifiedBadge = isVerified ? `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(71,230,129,0.1); color:var(--primary-green); padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; border: 1px solid rgba(71,230,129,0.2); margin-left:8px;"><i data-lucide="check-circle" width="10" height="10"></i> VERIFIED</span>` : '';
+
     const valAttr = Number.isFinite(val) ? val : 0;
     return `
             <div class="activity-swipe-wrap${enterClass}" data-activity-id="${String(id)}" data-activity-value="${valAttr}">
@@ -1081,7 +1084,10 @@ function buildSingleActivityRowHtml(act, receiptPreviews, opts = {}) {
                 <div class="activity-feed-thumb-wrap">${thumb}</div>
                 <div class="activity-feed-body">
                   <div class="activity-feed-title-row">
-                    <span class="activity-feed-title clash">${escapeHtml(act.label)}</span>
+                    <div style="display:flex; align-items:center;">
+                      <span class="activity-feed-title clash">${escapeHtml(act.label)}</span>
+                      ${verifiedBadge}
+                    </div>
                     <span class="activity-feed-time">${escapeHtml(timeStr)}</span>
                   </div>
                   <div class="activity-feed-value-row">
