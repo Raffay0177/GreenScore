@@ -6,6 +6,10 @@ import { auth } from 'express-oauth2-jwt-bearer';
 import Activity from './models/Activity.js';
 import UserMetric from './models/UserMetric.js';
 
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id;
+}
+
 dotenv.config();
 
 const app = express();
@@ -47,6 +51,28 @@ app.get('/api/carbon', checkJwt, async (req, res) => {
         { id: 102, text: "Commuting by public transport could save up to 30% on your daily emissions." }
       ]
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE single activity (adjust running total)
+app.delete('/api/activities/:id', checkJwt, async (req, res) => {
+  const userId = req.auth.payload.sub;
+  const { id } = req.params;
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ error: 'Invalid activity id' });
+  }
+  try {
+    const act = await Activity.findOne({ _id: id, userId });
+    if (!act) return res.status(404).json({ error: 'Activity not found' });
+
+    const value = Number(act.value) || 0;
+    await Activity.deleteOne({ _id: act._id });
+    await UserMetric.updateOne({ userId }, { $inc: { currentEmissions: -value } });
+    await UserMetric.updateOne({ userId, currentEmissions: { $lt: 0 } }, { $set: { currentEmissions: 0 } });
+
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -533,6 +533,130 @@ const confirmAndLog = async () => {
 
 document.getElementById('receipt-upload').addEventListener('change', handleImageUpload);
 
+const ACTIVITY_DELETE_W = 80;
+
+function escapeHtml(text) {
+    if (text == null) return '';
+    const d = document.createElement('div');
+    d.textContent = String(text);
+    return d.innerHTML;
+}
+
+function safeFeedIcon(icon) {
+    const allowed = new Set(['utensils', 'car', 'shopping-bag', 'coffee', 'activity', 'leaf']);
+    return allowed.has(icon) ? icon : 'activity';
+}
+
+async function deleteActivityById(id) {
+    if (!id || !confirm('Remove this activity from your log?')) return;
+    try {
+        const token = await auth0Client.getTokenSilently();
+        const res = await fetch(`/api/activities/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || 'Could not delete activity');
+            return;
+        }
+        await refreshData();
+    } catch (e) {
+        console.error(e);
+        alert('Could not delete activity');
+    }
+}
+
+function initActivitySwipeFeed(container) {
+    const wraps = container.querySelectorAll('.activity-swipe-wrap');
+    wraps.forEach((wrap) => {
+        if (wrap.dataset.swipeBound === '1') return;
+        wrap.dataset.swipeBound = '1';
+
+        const panel = wrap.querySelector('.activity-swipe-panel');
+        const btn = wrap.querySelector('.activity-swipe-delete');
+        if (!panel || !btn) return;
+
+        let dragging = false;
+        let activePointerId = null;
+        let startClientX = 0;
+        let startOffset = 0;
+
+        const setPanelOffset = (x, animated) => {
+            const clamped = Math.max(-ACTIVITY_DELETE_W, Math.min(0, x));
+            wrap._swipeOffset = clamped;
+            panel.style.transition = animated ? 'transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+            panel.style.transform = `translateX(${clamped}px)`;
+        };
+
+        const closeAllOtherRows = () => {
+            container.querySelectorAll('.activity-swipe-wrap').forEach((w) => {
+                if (w === wrap) return;
+                const p = w.querySelector('.activity-swipe-panel');
+                if (!p) return;
+                w._swipeOffset = 0;
+                p.style.transition = 'transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)';
+                p.style.transform = 'translateX(0)';
+            });
+        };
+
+        const finishDrag = (e) => {
+            if (!dragging) return;
+            if (e && activePointerId !== null && e.pointerId !== activePointerId) return;
+            dragging = false;
+            const pid = activePointerId;
+            activePointerId = null;
+            if (pid != null) {
+                try {
+                    panel.releasePointerCapture(pid);
+                } catch (_) {
+                    /* ignore */
+                }
+            }
+            const o = wrap._swipeOffset ?? 0;
+            const snap = o < -ACTIVITY_DELETE_W / 2 ? -ACTIVITY_DELETE_W : 0;
+            setPanelOffset(snap, true);
+        };
+
+        wrap._swipeOffset = 0;
+        setPanelOffset(0, false);
+
+        panel.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            closeAllOtherRows();
+            dragging = true;
+            activePointerId = e.pointerId;
+            startClientX = e.clientX;
+            startOffset = wrap._swipeOffset ?? 0;
+            try {
+                panel.setPointerCapture(e.pointerId);
+            } catch (_) {
+                /* ignore */
+            }
+        });
+
+        panel.addEventListener('pointermove', (e) => {
+            if (!dragging || e.pointerId !== activePointerId) return;
+            const dx = e.clientX - startClientX;
+            let next = startOffset + dx;
+            next = Math.max(-ACTIVITY_DELETE_W, Math.min(0, next));
+            setPanelOffset(next, false);
+        });
+
+        panel.addEventListener('pointerup', finishDrag);
+        panel.addEventListener('pointercancel', finishDrag);
+        panel.addEventListener('lostpointercapture', (e) => {
+            if (dragging && e.pointerId === activePointerId) finishDrag(e);
+        });
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteActivityById(wrap.dataset.activityId);
+        });
+    });
+}
+
 function renderData(data) {
     if (!data || typeof data.currentEmissions === 'undefined') return;
 
@@ -541,17 +665,32 @@ function renderData(data) {
     const feed = document.getElementById('activity-feed');
     const feedActs = (data.activities || []).slice(0, 10);
     if (feed && feedActs.length) {
-        feed.innerHTML = feedActs.map(act => `
-            <div class="card" style="display:flex; align-items:center; gap:16px; padding:16px; margin-bottom:12px;">
-                <div style="color: var(--primary-green);"><i data-lucide="${act.icon || 'activity'}"></i></div>
-                <div>
-                   <div class="clash" style="font-size:16px;">${act.label}</div>
-                   <div style="font-size:12px; color:var(--text-dim);">Impact: ${act.intensity}</div>
+        feed.innerHTML = feedActs
+            .map((act) => {
+                const id = act._id ?? act.id;
+                const ic = safeFeedIcon(act.icon);
+                const intenColor = act.intensity === 'High' ? '#e74c3c' : '#2ecc71';
+                const val = Number(act.value);
+                return `
+            <div class="activity-swipe-wrap" data-activity-id="${String(id)}">
+              <div class="activity-swipe-actions">
+                <button type="button" class="activity-swipe-delete" aria-label="Delete activity">
+                  <i data-lucide="trash-2" width="22" height="22"></i>
+                </button>
+              </div>
+              <div class="activity-swipe-panel">
+                <div style="color: var(--primary-green);"><i data-lucide="${ic}"></i></div>
+                <div style="flex:1; min-width:0;">
+                   <div class="clash" style="font-size:16px;">${escapeHtml(act.label)}</div>
+                   <div style="font-size:12px; color:var(--text-dim);">Impact: ${escapeHtml(act.intensity)}</div>
                 </div>
-                <div style="margin-left:auto; font-weight:700; color: ${act.intensity === 'High' ? '#e74c3c' : '#2ecc71'};">+${act.value}kg</div>
-            </div>
-        `).join('');
+                <div style="margin-left:auto; font-weight:700; color: ${intenColor}; flex-shrink:0;">+${Number.isFinite(val) ? val.toFixed(1) : '0.0'}kg</div>
+              </div>
+            </div>`;
+            })
+            .join('');
         if (window.lucide) lucide.createIcons();
+        initActivitySwipeFeed(feed);
     } else if (feed) {
         feed.innerHTML =
             '<div style="text-align:center; padding:24px; color:var(--text-dim); font-size:14px;">No activity yet. Log food, travel, or a receipt to get started.</div>';

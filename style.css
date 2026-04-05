@@ -295,5 +295,65 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
     transition: stroke-dashoffset 1s ease-in-out;
 }
 
+/* Activity feed — Cal.ai-style swipe to reveal delete */
+.activity-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--border-radius);
+  margin-bottom: 12px;
+}
+
+.activity-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 80px;
+  background: linear-gradient(90deg, #ff453a, #ff3b30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 0;
+}
+
+.activity-swipe-delete {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.activity-swipe-delete:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.activity-swipe-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin: 0;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.activity-swipe-panel:active {
+  cursor: grabbing;
+}
+
 /* Existing Components Overrides */
 .card.main-chart { padding: 0; overflow: hidden; } /* Remove padding for carousel */
