@@ -2544,7 +2544,45 @@ function renderData(data) {
     }
 
     applyDayInsights();
-    if (data) renderWeeklyChart(data);
+    if (data) {
+        renderWeeklyChart(data);
+        renderInvoice(data);
+    }
+}
+
+function renderInvoice(data) {
+    const elDebt = document.getElementById('invoice-debt');
+    const elTrees = document.getElementById('invoice-trees');
+    const elDate = document.getElementById('invoice-due-date');
+    const elStamp = document.getElementById('invoice-stamp');
+    const elId = document.getElementById('invoice-id');
+
+    if (!data) return;
+
+    if (elDebt) elDebt.innerText = (Number(data.currentEmissions) || 0).toFixed(1);
+    if (elTrees) elTrees.innerText = Math.ceil((Number(data.currentEmissions) || 0) / TREE_KG_PER_YEAR);
+    
+    if (elDate) {
+        if (data.activities && data.activities.length > 0) {
+            // Find earliest activity
+            const dates = data.activities.map(a => new Date(a.timestamp).getTime());
+            const earliest = new Date(Math.min(...dates));
+            elDate.innerText = earliest.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+        } else {
+            elDate.innerText = 'Now';
+        }
+    }
+
+    if (elStamp) elStamp.style.display = (data.currentEmissions > 0) ? 'block' : 'none';
+    if (elId && auth0Client) {
+        // Use a short snippet of user ID for a "real" invoice feel
+        auth0Client.getUser().then(user => {
+            if (user && user.sub) {
+                const shortId = user.sub.split('|').pop().slice(-6).toUpperCase();
+                elId.innerText = `GS-${shortId}-26`;
+            }
+        });
+    }
 }
 
 function animateRing(id, percent) {

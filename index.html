@@ -137,12 +137,14 @@
 
       <!-- Feature 08: Nature's Debt Invoice -->
       <h3 class="section-title clash">Nature's Debt Invoice</h3>
-      <div class="card" style="font-family: monospace; font-size: 14px; background: #fffcf0; border: 1px dashed #dcdcdc;">
-        <div style="border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; font-weight: 700;">INVOICE #2026-EARTH</div>
-        <div style="display:flex; justify-content: space-between;"><span>Current CO2 Debt:</span> <span>428.4 kg</span></div>
-        <div style="display:flex; justify-content: space-between;"><span>Trees Due:</span> <span>12 Trees</span></div>
-        <div style="display:flex; justify-content: space-between; color: var(--accent-orange); margin-top: 8px; font-weight: 700;"><span>OVERDUE SINCE:</span> <span>Apr 04</span></div>
+      <div class="card" style="font-family: monospace; font-size: 14px; background: #fffcf0; border: 1px dashed #dcdcdc; position:relative; overflow:hidden;">
+        <div style="border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; font-weight: 700;">INVOICE #<span id="invoice-id">2026-EARTH</span></div>
+        <div style="display:flex; justify-content: space-between;"><span>Current CO2 Debt:</span> <span><span id="invoice-debt">0.0</span> kg</span></div>
+        <div style="display:flex; justify-content: space-between;"><span>Trees Due:</span> <span id="invoice-trees">0</span> Trees</div>
+        <div style="display:flex; justify-content: space-between; color: var(--accent-orange); margin-top: 8px; font-weight: 700;"><span>OVERDUE SINCE:</span> <span id="invoice-due-date">N/A</span></div>
         <div style="margin-top: 16px; font-size: 10px; color: #888; text-align:center;">This invoice is calculated based on lifetime consumption metrics.</div>
+        <!-- Overdue Stamp (Visual) -->
+        <div id="invoice-stamp" style="position:absolute; top: 50%; right: 20px; border: 4px solid #c62828; color: #c62828; padding: 4px 12px; transform: rotate(-15deg); font-weight: 900; opacity: 0.2; pointer-events: none; display:none;">OVERDUE</div>
       </div>
 
       <!-- Scanned History removed as per request -->
