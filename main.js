@@ -910,16 +910,14 @@ const handleBackgroundScan = async (base64, mode, tempId) => {
     try {
         let endpoint = '/api/scan'; 
         if (mode === 'barcode' || mode === 'label') endpoint = '/api/food/scan-barcode';
-
         const results = await sendToAI(base64, endpoint);
-        const normalizedItems = results.items ? results.items : [results];
-
         const token = await auth0Client.getTokenSilently();
         
-        // Log all items to the DB
-        const savedActivities = [];
-        for (const item of normalizedItems) {
-            const logRes = await fetch('/api/log', {
+        // If it's a smart endpoint like /api/scan, it handles its own logging.
+        // If it's a simple estimate endpoint like /api/food/scan-barcode, we log it here.
+        if (endpoint === '/api/food/scan-barcode') {
+            const item = results;
+            await fetch('/api/log', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -928,24 +926,14 @@ const handleBackgroundScan = async (base64, mode, tempId) => {
                 body: JSON.stringify({
                     label: item.label,
                     value: item.value,
-                    icon: item.category === 'Food' ? 'utensils' : 'activity',
+                    icon: item.intensity === 'High' ? 'utensils' : 'activity',
                     intensity: item.intensity || (item.value > 2 ? 'High' : 'Low')
                 })
             });
-            if (logRes.ok) {
-                savedActivities.push(await logRes.json());
-            }
         }
 
-        // Replace the "Pending" item in the snapshot
-        if (carbonSnapshot && carbonSnapshot.activities) {
-            carbonSnapshot.activities = carbonSnapshot.activities.filter(a => a.id !== tempId && a._id !== tempId);
-            carbonSnapshot.activities = [...savedActivities, ...carbonSnapshot.activities];
-            
-            // Re-calc metrics and re-mount
-            await refreshData(); 
-        }
-
+        // Always refresh from server to get original state + new logs
+        await refreshData();
     } catch (err) {
         console.error("Background scan failed:", err);
         if (carbonSnapshot && carbonSnapshot.activities) {
