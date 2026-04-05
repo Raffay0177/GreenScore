@@ -43,12 +43,14 @@
               <div class="visual-label">Carbon Usage</div>
               <div class="status-pill status-good" id="carbon-day-pill">—</div>
             </div>
-            <div class="progress-ring">
+            <div class="progress-ring" style="position:relative; display:inline-block;">
               <svg width="100" height="100">
                 <circle class="ring-bg" stroke="#f2f2f7" stroke-width="8" fill="transparent" r="40" cx="50" cy="50"/>
                 <circle id="main-ring-1" class="ring-progress" stroke="var(--primary-green)" stroke-width="8" stroke-linecap="round" fill="transparent" r="40" cx="50" cy="50" style="stroke-dasharray: 251.3; stroke-dashoffset: 251.3;"/>
-                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="16" font-weight="700">🌱</text>
               </svg>
+              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+                <i data-lucide="leaf" style="width:26px; height:26px; color:var(--primary-green);"></i>
+              </div>
             </div>
           </div>
           <!-- Slide 2: Gains (Trees) -->
@@ -61,12 +63,14 @@
               <div class="visual-label">Forest Legacy</div>
               <div class="status-pill status-good" id="forest-legacy-pill">—</div>
             </div>
-            <div class="progress-ring">
+            <div class="progress-ring" style="position:relative; display:inline-block;">
               <svg width="100" height="100">
                 <circle class="ring-bg" stroke="#e8f5e9" stroke-width="8" fill="transparent" r="40" cx="50" cy="50"/>
                 <circle id="main-ring-2" class="ring-progress" stroke="#4caf50" stroke-width="8" stroke-linecap="round" fill="transparent" r="40" cx="50" cy="50" style="stroke-dasharray: 251.3; stroke-dashoffset: 150;"/>
-                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="24">🌳</text>
               </svg>
+              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+                <i data-lucide="trees" style="width:28px; height:28px; color:#4caf50;"></i>
+              </div>
             </div>
           </div>
           <!-- Slide 3: Risk (Local) -->
@@ -78,12 +82,14 @@
               <div class="visual-label">Local Exposure</div>
               <div class="status-pill status-danger" id="risk-exposure-pill">—</div>
             </div>
-            <div class="progress-ring">
+            <div class="progress-ring" style="position:relative; display:inline-block;">
               <svg width="100" height="100">
                 <circle class="ring-bg" stroke="#ffebee" stroke-width="8" fill="transparent" r="40" cx="50" cy="50"/>
                 <circle id="main-ring-3" class="ring-progress" stroke="#e74c3c" stroke-width="8" stroke-linecap="round" fill="transparent" r="40" cx="50" cy="50" style="stroke-dasharray: 251.3; stroke-dashoffset: 60;"/>
-                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="24">🌡️</text>
               </svg>
+              <div id="ring3-icon-wrap" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+                <i data-lucide="activity" style="width:26px; height:26px; color:#e74c3c;"></i>
+              </div>
             </div>
           </div>
         </div>
