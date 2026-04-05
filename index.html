@@ -233,18 +233,63 @@
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-                    <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0; background: #e3f2fd;" onclick="document.getElementById('receipt-upload').click()">
+                <div style="display:grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px;">
+                    <div class="card mini-card" style="border: 1px solid var(--accent-blue); margin:0;" onclick="openInWindowCamera()">
                         <i data-lucide="camera"></i>
-                        Scan Receipt
-                    </div>
-                    <div class="card mini-card" style="border: 1px solid var(--accent-orange); margin:0; background: #fff8e1;" onclick="document.getElementById('barcode-upload').click()">
-                        <i data-lucide="barcode"></i>
-                        Scan Barcode
+                        Scan
                     </div>
                 </div>
             </div>
 
+            <!-- In-Window Camera Scanner View -->
+            <div id="logger-view-scanner" style="display:none; position:relative;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                   <button onclick="stopCameraAndReturn()" style="background:none; border:none; color:var(--accent-blue); padding:0; cursor:pointer;"><i data-lucide="arrow-left" style="width:20px; height:20px;"></i></button>
+                   <h2 class="clash" style="margin:0; font-size: 20px;">Scan</h2>
+                </div>
+                
+                <div class="scanner-container" style="position:relative; width:100%; aspect-ratio: 1/1; background:#000; border-radius:24px; overflow:hidden; margin-bottom:20px;">
+                    <video id="scanner-video" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+                    
+                    <!-- Barcode Reticle -->
+                    <div id="scanner-reticle" style="display:none; position:absolute; inset:20%; border:2px solid var(--primary-green); border-radius:12px; pointer-events:none;">
+                         <div style="position:absolute; top:-2px; left:-2px; width:20px; height:20px; border-top:4px solid var(--primary-green); border-left:4px solid var(--primary-green); border-radius: 4px 0 0 0;"></div>
+                         <div style="position:absolute; top:-2px; right:-2px; width:20px; height:20px; border-top:4px solid var(--primary-green); border-right:4px solid var(--primary-green); border-radius: 0 4px 0 0;"></div>
+                         <div style="position:absolute; bottom:-2px; left:-2px; width:20px; height:20px; border-bottom:4px solid var(--primary-green); border-left:4px solid var(--primary-green); border-radius: 0 0 0 4px;"></div>
+                         <div style="position:absolute; bottom:-2px; right:-2px; width:20px; height:20px; border-bottom:4px solid var(--primary-green); border-right:4px solid var(--primary-green); border-radius: 0 0 4px 0;"></div>
+                    </div>
+
+                    <!-- Flash & Zoom Controls -->
+                    <div style="position:absolute; top:12px; right:12px; display:flex; flex-direction:column; gap:8px;">
+                         <button id="btn-cam-flash" onclick="toggleCameraFlash()" style="width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:white; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Toggle Flash"><i data-lucide="zap-off" style="width:18px; height:18px;"></i></button>
+                         <button onclick="setCameraZoom(0.5)" style="width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:white; font-weight:700; font-size:10px; cursor:pointer;">0.5x</button>
+                         <button onclick="setCameraZoom(1.0)" style="width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:white; font-weight:700; font-size:10px; cursor:pointer;">1.0x</button>
+                    </div>
+
+                    <!-- Shutter Button Overlay (Central) -->
+                    <button onclick="captureCameraFrame()" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:64px; height:64px; border-radius:50%; border:4px solid white; background:rgba(255,255,255,0.2); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                         <div style="width:48px; height:48px; border-radius:50%; background:white;"></div>
+                    </button>
+                </div>
+
+                <!-- Mode Cards -->
+                <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
+                    <div class="card mini-card scanner-mode-card active" onclick="switchScannerMode('food')" style="flex:0 0 100px; padding:12px 8px; margin:0; border:2px solid var(--primary-green); scroll-snap-align: start;">
+                        <i data-lucide="utensils" style="width:18px; height:18px;"></i>
+                        <span style="font-size:11px; display:block; margin-top:4px;">Food</span>
+                    </div>
+                    <div class="card mini-card scanner-mode-card" onclick="switchScannerMode('barcode')" style="flex:0 0 100px; padding:12px 8px; margin:0; border:1px solid var(--border-light); scroll-snap-align: start;">
+                        <i data-lucide="barcode" style="width:18px; height:18px;"></i>
+                        <span style="font-size:11px; display:block; margin-top:4px;">Barcode</span>
+                    </div>
+                    <div class="card mini-card scanner-mode-card" onclick="switchScannerMode('label')" style="flex:0 0 100px; padding:12px 8px; margin:0; border:1px solid var(--border-light); scroll-snap-align: start;">
+                        <i data-lucide="info" style="width:18px; height:18px;"></i>
+                        <span style="font-size:11px; display:block; margin-top:4px;">Label</span>
+                    </div>
+                </div>
+            </div>
+
+            <canvas id="scanner-capture-canvas" style="display:none;"></canvas>
             <input type="file" id="receipt-upload" accept="image/*" capture="environment" style="display:none;">
             <input type="file" id="barcode-upload" accept="image/*" capture="environment" style="display:none;">
             <button onclick="toggleLogger()" style="width:100%; border:none; background: #000; color:#fff; padding:16px; border-radius:100px; font-weight:700;">Cancel</button>

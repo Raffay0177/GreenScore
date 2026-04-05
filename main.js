@@ -3,6 +3,9 @@ import { initDestinationMaps, prepareDestinationView, onCarLogViewChange, getDes
 
 // Global state
 let auth0Client = null;
+let foodRecognition = null;
+let scannerStream = null;
+let currentScannerMode = 'food'; // 'food', 'barcode', 'label'
 
 const configureClient = async () => {
     auth0Client = await createAuth0Client({
@@ -209,9 +212,17 @@ window.toggleLogger = () => {
     const modal = document.getElementById('logger-modal');
     if (modal.style.display === 'none') {
         modal.style.display = 'flex';
-        backToLoggerMain(); // Reset to main list when opening
+        backToLoggerMain(); 
+        
+        // Add Enter listener to input once
+        const input = document.getElementById('food-desc-input');
+        if (input && !input.dataset.listener) {
+            input.onkeyup = (e) => { if (e.key === 'Enter') submitFoodDescription(); };
+            input.dataset.listener = 'true';
+        }
     } else {
         modal.style.display = 'none';
+        stopCameraAndReturn(); // Cleanup if camera was open
     }
 };
 
@@ -447,6 +458,139 @@ window.closeScanner = () => {
     document.getElementById('barcode-upload').value = '';
 };
 
+// --- SCANNER MODAL & IN-WINDOW CAMERA ---
+
+window.openInWindowCamera = async () => {
+    const mainView = document.getElementById('logger-view-food');
+    const scannerView = document.getElementById('logger-view-scanner');
+    if (mainView) mainView.style.display = 'none';
+    if (scannerView) scannerView.style.display = 'block';
+
+    try {
+        const constraints = {
+            video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1080 } }
+        };
+        scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById('scanner-video');
+        if (video) video.srcObject = scannerStream;
+        
+        switchScannerMode('food'); // Default mode
+        if (window.lucide) lucide.createIcons();
+    } catch (err) {
+        console.error("Camera access failed:", err);
+        alert("Could not access camera. Please check permissions.");
+        stopCameraAndReturn();
+    }
+};
+
+window.stopCameraAndReturn = () => {
+    if (scannerStream) {
+        scannerStream.getTracks().forEach(track => track.stop());
+        scannerStream = null;
+    }
+    const mainView = document.getElementById('logger-view-food');
+    const scannerView = document.getElementById('logger-view-scanner');
+    if (mainView) mainView.style.display = 'block';
+    if (scannerView) scannerView.style.display = 'none';
+};
+
+window.switchScannerMode = (mode) => {
+    currentScannerMode = mode;
+    const cards = document.querySelectorAll('.scanner-mode-card');
+    cards.forEach(c => {
+        const m = c.getAttribute('onclick').match(/'([^']+)'/)[1];
+        c.classList.toggle('active', m === mode);
+    });
+
+    const reticle = document.getElementById('scanner-reticle');
+    if (reticle) reticle.style.display = (mode === 'barcode') ? 'block' : 'none';
+};
+
+window.toggleCameraFlash = async () => {
+    if (!scannerStream) return;
+    const track = scannerStream.getVideoTracks()[0];
+    const caps = track.getCapabilities();
+    if (!caps.torch) {
+        alert("Flash/Torch not supported on this device/browser.");
+        return;
+    }
+
+    const currentTorch = track.getConstraints().advanced?.[0]?.torch || false;
+    try {
+        await track.applyConstraints({ advanced: [{ torch: !currentTorch }] });
+        const btn = document.getElementById('btn-cam-flash');
+        if (btn) {
+            btn.innerHTML = !currentTorch ? '<i data-lucide="zap"></i>' : '<i data-lucide="zap-off"></i>';
+            btn.style.color = !currentTorch ? 'var(--primary-green)' : 'white';
+            if (window.lucide) lucide.createIcons();
+        }
+    } catch (e) {
+        console.warn("Torch failed", e);
+    }
+};
+
+window.setCameraZoom = async (val) => {
+    if (!scannerStream) return;
+    const track = scannerStream.getVideoTracks()[0];
+    const caps = track.getCapabilities();
+    if (!caps.zoom) {
+        alert("Zoom not supported on this camera.");
+        return;
+    }
+    
+    // Zoom range is usually 1 to some max. Map 0.5x to 1 if needed, or use specific values.
+    // For simplicity, we'll try to set zoom directly if it's within range.
+    const zoomVal = Math.max(caps.zoom.min, Math.min(caps.zoom.max, val * 2 || 1)); 
+    try {
+        await track.applyConstraints({ advanced: [{ zoom: zoomVal }] });
+    } catch (e) {
+        console.warn("Zoom failed", e);
+    }
+};
+
+window.captureCameraFrame = async () => {
+    const video = document.getElementById('scanner-video');
+    const canvas = document.getElementById('scanner-capture-canvas');
+    if (!video || !canvas) return;
+
+    // Show loading UI 
+    const originalContent = video.parentElement.innerHTML;
+    const scannerContainer = video.parentElement;
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.style = "position:absolute; inset:0; background:rgba(0,0,0,0.7); color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; border-radius:24px;";
+    loadingOverlay.innerHTML = '<div class="spinner" style="width:40px; height:40px; border:4px solid #fff; border-top-color:var(--primary-green); border-radius:50%; animation: spin 1s linear infinite;"></div><p style="margin-top:16px; font-weight:600;">AI Analyzing...</p>';
+    scannerContainer.appendChild(loadingOverlay);
+
+    try {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+
+        let endpoint = '/api/scan'; // Default (receipt/meal)
+        if (currentScannerMode === 'barcode') endpoint = '/api/food/scan-barcode';
+        if (currentScannerMode === 'label') endpoint = '/api/food/estimate'; // We treat label as description for now or specialized?
+
+        // If it's pure description, we need a special prompt for image labels?
+        // Actually, let's map 'label' to a new image-based endpoint if needed, 
+        // OR just send it to barcode and let AI figure it out.
+        // For now, let's use barcode for both 'barcode' and 'label' as they are similar image-based ID tasks.
+        if (currentScannerMode === 'label') endpoint = '/api/food/scan-barcode'; 
+
+        const results = await sendToAI(base64, endpoint);
+        const normalized = results.items ? results : { items: [results], totalCO2: results.value };
+        
+        stopCameraAndReturn();
+        renderScannedItems(normalized, base64);
+        toggleLogger(); // Close picker
+        document.getElementById('scanner-modal').style.display = 'flex';
+    } catch (err) {
+        alert(err.message || "Failed to analyze image.");
+    } finally {
+        if (loadingOverlay.parentElement) loadingOverlay.remove();
+    }
+};
+
 // Unified image handler (receipts or barcodes)
 const handleImageUpload = async (event, endpoint = '/api/scan') => {
     const file = event.target.files[0];
@@ -477,30 +621,44 @@ window.startFoodVoice = () => {
         alert("Voice recognition not supported in this browser. Try Chrome.");
         return;
     }
-    const recognition = new SpeechRecognition();
+
     const btn = document.getElementById('btn-food-voice');
+
+    // Toggle behavior
+    if (foodRecognition) {
+        foodRecognition.stop();
+        return;
+    }
+
+    foodRecognition = new SpeechRecognition();
+    foodRecognition.continuous = false;
+    foodRecognition.interimResults = false;
     
-    recognition.onstart = () => {
+    foodRecognition.onstart = () => {
         btn.classList.add('listening');
-        // Red color and stop icon
         btn.style.color = '#ff3b30'; 
         btn.innerHTML = '<i data-lucide="circle-stop"></i>';
         if (window.lucide) lucide.createIcons();
     };
     
-    recognition.onresult = (event) => {
+    foodRecognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         document.getElementById('food-desc-input').value = transcript;
     };
     
-    recognition.onend = () => {
+    foodRecognition.onend = () => {
         btn.classList.remove('listening');
         btn.style.color = 'var(--primary-green)';
         btn.innerHTML = '<i data-lucide="mic"></i>';
         if (window.lucide) lucide.createIcons();
+        foodRecognition = null;
     };
     
-    recognition.start();
+    foodRecognition.onerror = () => {
+        foodRecognition = null;
+    };
+
+    foodRecognition.start();
 };
 
 window.submitFoodDescription = async () => {

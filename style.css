@@ -700,6 +700,40 @@ h1, h2, h3, .clash { font-family: 'Clash Display', sans-serif; font-weight: 600;
 }
 
 /* Rest of existing styles */
+.scanner-mode-card.active {
+  border-color: var(--primary-green) !important;
+  background: #e8f5e9;
+  border-width: 2px !important;
+}
+
+.scanner-mode-card i {
+  color: var(--text-main);
+}
+
+.scanner-mode-card.active i {
+  color: var(--primary-green);
+}
+
+.listening {
+  position: relative;
+}
+
+.listening::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid #ff3b30;
+  border-radius: 50%;
+  animation: pulse-red-border 1.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse-red-border {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* Rest of existing styles */
 .car-add-split {
   display: flex;
   flex-direction: column;
